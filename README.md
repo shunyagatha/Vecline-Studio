@@ -44,4 +44,12 @@ A real origin is required (a worker and a service worker will not run from
 
 ## Licence
 
-MIT, matching the library.
+**Source-available, not open source.** The code is public so anyone can verify
+the claim this product rests on — that your images are converted in your browser
+and never uploaded. You may read it, and build and run it locally to audit it.
+You may not redistribute it, host it for others, or use it commercially. See
+[LICENSE](LICENSE).
+
+The **engine is different**: [`vecline`](https://github.com/shunyagatha/Vecline)
+is MIT and always will be. If you want to build your own tool on this
+technology, use the library — that is precisely what it is for.

@@ -1,21 +1,55 @@
-MIT License
+Vecline Studio — Source-Available Licence
+Copyright (c) 2026 shunyagatha. All rights reserved.
 
-Copyright (c) 2026 shunyagatha
+This source code is published so that anyone can read it and verify how the
+application behaves — in particular, that it processes images entirely in the
+browser and never uploads them. It is NOT open source, and the permissions
+below are deliberately narrow.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. PERMITTED
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+   a. You may view, read, and study this source code.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+   b. You may clone the repository and build and run the application locally,
+      privately, for the purpose of evaluating or auditing it, or for your own
+      personal, non-commercial use.
+
+   c. You may quote short excerpts for the purpose of commentary, review,
+      teaching, or security reporting, with attribution.
+
+2. NOT PERMITTED (without prior written permission from the copyright holder)
+
+   a. Redistributing this source code or the built application, in whole or in
+      substantial part, modified or unmodified.
+
+   b. Hosting, deploying, or otherwise making this application — or any
+      derivative or substantially similar work based on it — available to any
+      third party, whether or not a fee is charged.
+
+   c. Any commercial use, including offering it as a product, a service, or
+      part of either, and including internal use by an organisation to provide
+      services to its customers.
+
+   d. Removing or altering this notice, the copyright notice, or the product's
+      name and branding.
+
+3. THE ENGINE IS SEPARATE AND OPEN
+
+   The conversion engine this application uses is the `vecline` package, which
+   is published separately under the MIT Licence and is entirely unaffected by
+   this notice. If you want to build your own tool on the same technology, use
+   that package — that is exactly what it is for:
+
+       https://github.com/shunyagatha/Vecline
+
+4. NO WARRANTY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+   DEALINGS IN THE SOFTWARE.
+
+For any permission not granted above, ask: https://github.com/shunyagatha
