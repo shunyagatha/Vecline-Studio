@@ -1,0 +1,59 @@
+# Build Vecline Studio and publish it to GitHub Pages.
+#
+# The studio is a static site with no backend, so "deploy" is genuinely just
+# uploading `dist/`. The build runs here rather than committing build output, so
+# the repository stays source-only and the published bundle always matches the
+# commit it came from.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Pages needs these; nothing else in the workflow writes to the repo.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race; queue instead, and let a newer commit win.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # A type error should stop a deploy, not ship broken UI.
+      - run: npm run typecheck
+
+      - run: npm run build
+        env:
+          # Stamps the service worker so returning visitors get the new build
+          # instead of a stale cached shell.
+          BUILD_ID: ${{ github.sha }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
