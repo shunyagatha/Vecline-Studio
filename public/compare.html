@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Vecline Compares</title>
+<meta name="description" content="Vecline against potrace, imagetracerjs and Vectorizer.AI — every figure measured with the same renderer and the same metrics, and the one row we lose stated plainly.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#EFE9EF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#120E18" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+
+<!--
+  Same first-paint theme bootstrap as the studio: read one key, set one
+  attribute, before any paint. Without it the page would render in the system
+  theme and then visibly snap to the stored choice.
+-->
+<script>
+  try {
+    var t = localStorage.getItem("vecline-theme");
+    if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+  } catch (e) { /* storage can be blocked; the system theme is a fine fallback */ }
+</script>
+
+<style>
+/* ============================================================
+   VECLINE — design tokens (identical to the studio, so the two
+   pages read as one product)
+   ============================================================ */
+:root{
+  /* ground + surfaces */
+  --paper:#EFE9EF;
+  --surface:#FDFBFD;
+  --surface-2:#F7F2F7;
+  --line:#E1D8E2;
+  --line-2:#CDC2CF;
+  --grid:#E6DEE7;
+
+  /* ink */
+  --ink:#1B1220;
+  --ink-2:#665A6E;
+  --ink-3:#8D8194;
+
+  /* accent - process magenta */
+  --accent:#D1006F;
+  --accent-text:#A3005A;
+  --accent-soft:#FBE6F1;
+  --accent-on:#FFFFFF;
+
+  /* secondary - metrology cyan */
+  --meas:#0A6E8A;
+  --meas-soft:#E1F1F6;
+
+  /* semantic */
+  --ok:#0B7A55;
+  --ok-on:#FFFFFF;
+  --ok-soft:#E2F3EC;
+  --warn:#95590A;
+  --warn-on:#FFFFFF;
+  --warn-soft:#FBEEDC;
+
+  /* the machined readout panel (dark in both themes) */
+  --readout:#221A29;
+  --readout-2:#2E2437;
+  --readout-ink:#F2ECF4;
+  --readout-dim:#9C8FA6;
+  --readout-line:#3B3046;
+  --readout-accent:#FF4D9E;
+  --readout-meas:#5AC6E6;
+  --readout-ok:#3FCB98;
+  --readout-ok-on:#04150F;
+  --readout-warn:#E5A24B;
+  --readout-warn-on:#1C1204;
+
+  --focus:#D1006F;
+  --focus-ring:rgba(209,0,111,.28);
+  --shadow:0 1px 2px rgba(27,18,32,.06), 0 8px 26px -14px rgba(27,18,32,.30);
+  --shadow-lift:0 2px 4px rgba(27,18,32,.08), 0 18px 44px -18px rgba(27,18,32,.38);
+
+  --font-display:"Bahnschrift","DIN Alternate","DIN Condensed","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
+  --font-ui:"Segoe UI Variable Text","Segoe UI",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  --font-mono:"Cascadia Mono","SF Mono","JetBrains Mono",Consolas,Menlo,ui-monospace,monospace;
+
+  --r-s:3px; --r-m:6px; --r-l:10px;
+}
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#120E18;
+    --surface:#1C1624;
+    --surface-2:#241D2E;
+    --line:#302839;
+    --line-2:#463C51;
+    --grid:#241D2D;
+
+    --ink:#F3EDF4;
+    --ink-2:#AA9DB2;
+    --ink-3:#82758B;
+
+    --accent:#FF4D9E;
+    --accent-text:#FF83BB;
+    --accent-soft:#361126;
+    --accent-on:#210415;
+
+    --meas:#5AC6E6;
+    --meas-soft:#0E2C36;
+
+    --ok:#4BD3A0;
+    --ok-on:#04150F;
+    --ok-soft:#0C2C22;
+    --warn:#E5A24B;
+    --warn-on:#1C1204;
+    --warn-soft:#33240E;
+
+    --readout:#0C0910;
+    --readout-2:#181220;
+    --readout-ink:#F3EDF4;
+    --readout-dim:#8E819A;
+    --readout-line:#2C2338;
+
+    --focus:#FF4D9E;
+    --focus-ring:rgba(255,77,158,.32);
+    --shadow:0 1px 2px rgba(0,0,0,.5), 0 10px 30px -16px rgba(0,0,0,.8);
+    --shadow-lift:0 2px 6px rgba(0,0,0,.55), 0 20px 50px -20px rgba(0,0,0,.9);
+  }
+}
+
+:root[data-theme="dark"]{
+  --paper:#120E18;
+  --surface:#1C1624;
+  --surface-2:#241D2E;
+  --line:#302839;
+  --line-2:#463C51;
+  --grid:#241D2D;
+
+  --ink:#F3EDF4;
+  --ink-2:#AA9DB2;
+  --ink-3:#82758B;
+
+  --accent:#FF4D9E;
+  --accent-text:#FF83BB;
+  --accent-soft:#361126;
+  --accent-on:#210415;
+
+  --meas:#5AC6E6;
+  --meas-soft:#0E2C36;
+
+  --ok:#4BD3A0;
+  --ok-on:#04150F;
+  --ok-soft:#0C2C22;
+  --warn:#E5A24B;
+  --warn-on:#1C1204;
+  --warn-soft:#33240E;
+
+  --readout:#0C0910;
+  --readout-2:#181220;
+  --readout-ink:#F3EDF4;
+  --readout-dim:#8E819A;
+  --readout-line:#2C2338;
+
+  --focus:#FF4D9E;
+  --focus-ring:rgba(255,77,158,.32);
+  --shadow:0 1px 2px rgba(0,0,0,.5), 0 10px 30px -16px rgba(0,0,0,.8);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.55), 0 20px 50px -20px rgba(0,0,0,.9);
+}
+
+/* ---------- base ---------- */
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--font-ui);
+  font-size:15px;
+  line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3,p,ul,ol,figure,dl,dd{margin:0}
+ul,ol{padding:0;list-style:none}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
+a{color:var(--accent-text)}
+a:hover{color:var(--accent)}
+
+.lbl{
+  font-family:var(--font-display);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-3);
+}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.vh{
+  position:absolute;width:1px;height:1px;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;
+}
+code{
+  font-family:var(--font-mono);
+  font-size:.9em;
+  background:var(--surface-2);
+  border:1px solid var(--line);
+  border-radius:4px;
+  padding:1px 5px;
+}
+
+/* ---------- shell ---------- */
+.page{
+  max-width:1120px;
+  margin:0 auto;
+  padding:0 clamp(12px,2.4vw,32px) 64px;
+}
+
+/* ---------- top bar (same treatment as the studio) ---------- */
+.topbar{
+  display:flex;
+  align-items:center;
+  gap:clamp(14px,2.4vw,34px);
+  padding:20px 0 14px;
+  flex-wrap:wrap;
+}
+.brandwrap{position:relative;padding:9px 12px;flex:0 0 auto}
+.brandwrap::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border:1px dashed var(--accent);
+  opacity:.5;
+  pointer-events:none;
+}
+.brandwrap i{
+  position:absolute;
+  width:7px;height:7px;
+  background:var(--surface);
+  border:1.5px solid var(--accent);
+}
+.brandwrap i:nth-of-type(1){left:-4px;top:-4px}
+.brandwrap i:nth-of-type(2){right:-4px;top:-4px}
+.brandwrap i:nth-of-type(3){left:-4px;bottom:-4px}
+.brandwrap i:nth-of-type(4){right:-4px;bottom:-4px}
+.brand{
+  font-family:var(--font-display);
+  font-weight:700;
+  font-size:clamp(24px,3vw,32px);
+  line-height:.95;
+  letter-spacing:.01em;
+  text-transform:uppercase;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  white-space:nowrap;
+}
+.brand a{color:inherit;text-decoration:none}
+.brand a:hover{color:inherit}
+.brand span{color:var(--accent-text)}
+.brand em{
+  width:7px;height:7px;
+  background:var(--accent);
+  display:inline-block;
+  font-style:normal;
+  transform:translateY(-1px);
+}
+.pitch{
+  font-family:var(--font-display);
+  font-size:clamp(16px,1.7vw,21px);
+  font-weight:400;
+  line-height:1.25;
+  color:var(--ink-2);
+  max-width:32ch;
+  text-wrap:balance;
+}
+.pitch b{color:var(--ink);font-weight:700}
+.pitch u{
+  text-decoration:none;
+  color:var(--accent-text);
+  font-weight:700;
+  border-bottom:2px solid var(--accent);
+  padding-bottom:1px;
+}
+.topspace{flex:1 1 20px}
+.toplinks{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.tlink{
+  font-size:13px;
+  color:var(--ink-2);
+  text-decoration:none;
+  padding:7px 10px;
+  border-radius:var(--r-m);
+}
+.tlink:hover{color:var(--ink);background:var(--surface-2)}
+.tlink.home{color:var(--accent-text);font-weight:600}
+.iconbtn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  height:36px;min-width:36px;padding:0 11px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--r-m);
+  cursor:pointer;
+  color:var(--ink-2);
+}
+.iconbtn:hover{border-color:var(--line-2);color:var(--ink)}
+.iconbtn svg{display:block}
+
+/* ---------- lead ---------- */
+.lead{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--r-l);
+  box-shadow:var(--shadow);
+  padding:clamp(16px,2.6vw,26px);
+}
+.lead h2{
+  font-family:var(--font-display);
+  font-size:clamp(22px,3.2vw,32px);
+  font-weight:700;
+  line-height:1.08;
+  letter-spacing:.005em;
+  text-wrap:balance;
+  margin-bottom:10px;
+}
+.lead h2 span{color:var(--accent-text)}
+.lead p{color:var(--ink-2);max-width:74ch}
+.lead p + p{margin-top:10px}
+.lead b{color:var(--ink)}
+
+.method{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:1px;
+  margin-top:18px;
+  background:var(--readout-line);
+  border-radius:var(--r-l);
+  overflow:hidden;
+}
+.method div{
+  background:var(--readout);
+  color:var(--readout-ink);
+  padding:12px 14px 13px;
+  min-width:0;
+}
+.method .k{
+  font-family:var(--font-display);
+  font-size:10.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--readout-dim);
+}
+.method .v{
+  font-family:var(--font-mono);
+  font-size:13px;font-variant-numeric:tabular-nums;
+  line-height:1.45;margin-top:3px;
+}
+
+/* ---------- sections ---------- */
+.sec{margin-top:clamp(28px,4.4vw,52px)}
+.sechead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.sechead h2{
+  font-family:var(--font-display);
+  font-size:clamp(19px,2.4vw,26px);
+  font-weight:700;
+  line-height:1.1;
+  letter-spacing:.005em;
+}
+.sechead p{color:var(--ink-2);font-size:14px;flex:1 1 260px;min-width:0}
+.sub{color:var(--ink-2);max-width:74ch;margin-bottom:14px}
+.sub b{color:var(--ink)}
+
+/* ---------- caveats ---------- */
+.caveats{display:grid;grid-template-columns:repeat(auto-fit,minmax(288px,1fr));gap:12px;margin-bottom:16px}
+.caveat{
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-left:3px solid var(--meas);
+  border-radius:var(--r-l);
+  box-shadow:var(--shadow);
+  padding:14px 16px 15px;
+  min-width:0;
+}
+.caveat.warm{border-left-color:var(--warn)}
+.caveat h3{
+  font-family:var(--font-display);
+  font-size:14.5px;font-weight:700;letter-spacing:.03em;
+  margin-bottom:5px;
+}
+.caveat p{font-size:13.5px;color:var(--ink-2)}
+.caveat p + p{margin-top:7px}
+.caveat b{color:var(--ink)}
+
+/* ---------- tables ---------- */
+.tablewrap{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:var(--r-l);
+  box-shadow:var(--shadow);
+  max-width:100%;
+}
+.tablewrap:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+table{border-collapse:collapse;width:100%;text-align:left}
+table.m{min-width:560px}
+table.ax{min-width:720px}
+thead th{
+  font-family:var(--font-display);
+  font-size:10.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--ink-2);
+  padding:11px 14px;
+  border-bottom:1px solid var(--line-2);
+  white-space:nowrap;
+  background:var(--surface-2);
+}
+tbody th,tbody td{padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:last-child th,tbody tr:last-child td{border-bottom:0}
+th.n,td.n{text-align:right}
+td.n,td .num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody th{font-weight:600;white-space:nowrap}
+
+tr.grp th{
+  font-family:var(--font-display);
+  font-size:12px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink);
+  background:var(--surface-2);
+  padding:10px 14px 9px;
+  border-bottom:1px solid var(--line-2);
+}
+tr.grp th span{
+  font-family:var(--font-ui);
+  font-size:11.5px;font-weight:400;letter-spacing:0;text-transform:none;
+  color:var(--ink-3);
+  margin-left:8px;
+}
+tr.us th,tr.us td{background:var(--accent-soft)}
+tr.us th{color:var(--accent-text);font-weight:700}
+tr.us th em{
+  font-style:normal;font-family:var(--font-mono);font-size:11.5px;
+  color:var(--accent-text);opacity:.85;margin-left:6px;
+}
+td.b{
+  color:var(--accent-text);
+  font-weight:700;
+  box-shadow:inset 0 -2px 0 -1px var(--accent);
+}
+tr.nm th{color:var(--ink-2);font-weight:600}
+/* "not measured" is load-bearing honesty, not a footnote — it stays legible. */
+tr.nm td{
+  color:var(--ink-2);
+  font-size:13px;
+  font-style:italic;
+}
+.bitexact{
+  display:inline-block;
+  font-family:var(--font-display);
+  font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  background:var(--ok);color:var(--ok-on);
+  border-radius:100px;padding:2px 8px;margin-left:8px;
+  vertical-align:1px;
+}
+.legend{
+  display:flex;gap:14px;flex-wrap:wrap;
+  margin-top:10px;font-size:12.5px;color:var(--ink-2);
+}
+.legend b{color:var(--ink);font-weight:600}
+.legend i{
+  font-style:normal;color:var(--accent-text);font-weight:700;
+  box-shadow:inset 0 -2px 0 -1px var(--accent);
+}
+.foot{
+  margin-top:10px;font-size:13px;color:var(--ink-2);max-width:80ch;
+}
+.foot b{color:var(--ink)}
+
+/* ---------- the conceded row ---------- */
+.concede{
+  background:var(--surface);
+  border:1px solid var(--warn);
+  border-radius:var(--r-l);
+  box-shadow:var(--shadow);
+  overflow:hidden;
+  margin-bottom:16px;
+}
+.concede .cap{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:10px 16px;
+  background:var(--warn-soft);
+  border-bottom:1px solid var(--warn);
+}
+.concede .cap .tag{
+  font-family:var(--font-display);
+  font-size:10.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;
+  background:var(--warn);color:var(--warn-on);
+  border-radius:100px;padding:3px 10px;
+}
+.concede .cap .t{font-family:var(--font-display);font-size:15px;font-weight:700;letter-spacing:.02em}
+.concede .body{padding:15px 16px 17px}
+.concede h3{
+  font-family:var(--font-display);
+  font-size:clamp(17px,2.1vw,21px);font-weight:700;line-height:1.15;
+  margin-bottom:8px;
+}
+.concede p{color:var(--ink-2);max-width:78ch}
+.concede p + p{margin-top:9px}
+.concede b{color:var(--ink)}
+
+/* ---------- axis table cells ---------- */
+td.win,td.lose{white-space:nowrap;font-size:13px}
+.who{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--font-display);
+  font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  border-radius:100px;padding:3px 10px;
+  white-space:nowrap;
+}
+.who.v{background:var(--accent);color:var(--accent-on)}
+.who.o{background:var(--warn);color:var(--warn-on)}
+tr.lost th,tr.lost td{background:var(--warn-soft)}
+td.ours{font-size:13.5px}
+td.theirs{font-size:13.5px;color:var(--ink-2)}
+tbody th.axis{
+  font-family:var(--font-display);
+  font-size:13.5px;font-weight:700;letter-spacing:.02em;
+  white-space:normal;min-width:150px;
+}
+
+/* ---------- notice ---------- */
+.notice{
+  display:flex;align-items:flex-start;gap:11px;
+  padding:13px 15px;
+  background:var(--meas-soft);
+  border:1px solid var(--meas);
+  border-radius:var(--r-l);
+  font-size:13.5px;
+  margin-bottom:16px;
+}
+.notice svg{flex:0 0 auto;color:var(--meas);margin-top:2px}
+.notice b{color:var(--ink)}
+.notice .msg{min-width:0}
+
+/* ---------- closing ---------- */
+.close{
+  margin-top:clamp(28px,4.4vw,52px);
+  background:var(--readout);
+  color:var(--readout-ink);
+  border-radius:var(--r-l);
+  box-shadow:var(--shadow);
+  padding:clamp(18px,3vw,28px);
+}
+.close h2{
+  font-family:var(--font-display);
+  font-size:clamp(20px,2.6vw,27px);font-weight:700;line-height:1.1;
+  margin-bottom:9px;
+}
+.close p{color:var(--readout-dim);max-width:74ch;font-size:14.5px}
+.close p + p{margin-top:9px}
+.close b{color:var(--readout-ink)}
+.close a{color:var(--readout-accent)}
+.close code{background:var(--readout-2);border-color:var(--readout-line);color:var(--readout-ink)}
+.cta{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  border-radius:var(--r-m);
+  padding:10px 16px;
+  border:1px solid transparent;
+  cursor:pointer;text-decoration:none;
+  font-family:var(--font-display);
+  font-size:14px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+}
+.btn.primary{background:var(--accent);color:var(--accent-on)}
+.btn.primary:hover{filter:brightness(1.07);color:var(--accent-on)}
+.btn.secondary{background:transparent;border-color:var(--readout-line);color:var(--readout-ink)}
+.btn.secondary:hover{background:var(--readout-2);color:var(--readout-ink)}
+
+footer.site{
+  margin-top:26px;
+  display:flex;gap:8px 18px;flex-wrap:wrap;align-items:center;
+  font-size:13px;color:var(--ink-3);
+  border-top:1px solid var(--line);
+  padding-top:16px;
+}
+footer.site a{color:var(--ink-2);text-decoration:none}
+footer.site a:hover{color:var(--accent-text)}
+
+/* ---------- responsive ---------- */
+@media (max-width:720px){
+  .topbar{gap:12px;padding-top:16px}
+  .pitch{max-width:none;flex:1 1 100%;order:5}
+  .topspace{display:none}
+  .cta .btn{flex:1 1 auto;justify-content:center}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ======================= TOP BAR ======================= -->
+  <header class="topbar">
+    <div class="brandwrap">
+      <i></i><i></i><i></i><i></i>
+      <h1 class="brand"><a href="./">Vecline</a><em></em><span>Compare</span></h1>
+    </div>
+
+    <p class="pitch"><b>Measured, never asserted.</b> Including <u>the row we lose</u>.</p>
+
+    <div class="topspace"></div>
+
+    <nav class="toplinks" aria-label="Project links">
+      <a class="tlink home" href="./">&#8592; Studio</a>
+      <a class="tlink" href="https://github.com/shunyagatha/Vecline" rel="noopener">GitHub</a>
+      <a class="tlink" href="https://www.npmjs.com/package/vecline" rel="noopener">npm</a>
+      <a class="tlink" href="https://github.com/shunyagatha/Vecline#readme" rel="noopener">Docs</a>
+      <button class="iconbtn" id="theme" type="button" aria-label="Switch to dark theme"></button>
+    </nav>
+  </header>
+
+  <!-- ======================= LEAD ======================= -->
+  <section class="lead" aria-labelledby="leadH">
+    <h2 id="leadH">Every number here came out of <span>one command</span>, and you can run it too.</h2>
+    <p>
+      The figures below were produced by <code>npm&nbsp;run&nbsp;compare</code> in the
+      <a href="https://github.com/shunyagatha/Vecline" rel="noopener">Vecline library repo</a>.
+      Each tool&#8217;s SVG is rendered back to pixels with the <b>same renderer</b> and scored with the
+      <b>same metrics</b>, on the same ground &#8212; so nothing on this page depends on Vecline&#8217;s own view of
+      quality. The harness was written to be able to embarrass us, and on one axis it does.
+    </p>
+    <p>
+      The corpus is public <b>Kodak</b> photographs at 480&nbsp;px plus <b>synthetic fixtures</b> generated inside
+      the script itself, so the whole thing reproduces without licensing anyone&#8217;s images. The engine is
+      <b>MIT</b>: clone it, run the script, and check every claim on this page against your own output.
+    </p>
+
+    <div class="method">
+      <div>
+        <div class="k">Harness</div>
+        <div class="v">npm run compare</div>
+      </div>
+      <div>
+        <div class="k">Renderer</div>
+        <div class="v">one, shared by every tool</div>
+      </div>
+      <div>
+        <div class="k">Corpus</div>
+        <div class="v">Kodak 480px + synthetic</div>
+      </div>
+      <div>
+        <div class="k">Engine licence</div>
+        <div class="v">MIT &#183; re-runnable</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= MEASURED TABLES ======================= -->
+  <section class="sec" aria-labelledby="metricsH">
+    <div class="sechead">
+      <h2 id="metricsH">The measured numbers</h2>
+      <p>Higher PSNR and SSIM are better; lower &Delta;E&#8320;&#8320; is better.</p>
+    </div>
+
+    <p class="sub">
+      <b>&#8734;</b> PSNR with <b>1.0000</b> SSIM and <b>0.000</b> &Delta;E&#8320;&#8320; is not a rounding artefact &#8212; it means the
+      vector re-rasterises <b>bit-exact</b> against the source. SSIM is structural similarity (1.0000 is identical),
+      PSNR is peak signal-to-noise in decibels, and &Delta;E&#8320;&#8320; is mean perceptual colour difference
+      (0.000 is no difference at all).
+    </p>
+
+    <div class="caveats">
+      <div class="caveat">
+        <h3>potrace is bilevel by design</h3>
+        <p>
+          potrace traces black and white. Its colour rows below use <b>posterize</b>, a bolt-on multi-level mode
+          that is not what the tool was built for. Reporting those numbers without saying so would be a
+          <b>rigged fight</b>, so it is said here, in the same size type as the results.
+        </p>
+        <p>
+          The bilevel row <em>is</em> apples to apples: that is the case potrace was designed for, and it is
+          measured against Vecline directly.
+        </p>
+      </div>
+      <div class="caveat warm">
+        <h3>On flat art, &#8220;lossless&#8221; means lossless</h3>
+        <p>
+          On line art and flat colour art, Vecline&#8217;s <code>lossless</code> mode returns <b>provably bit-exact
+          vector geometry</b> &#8212; real paths and fills, <b>not an embedded bitmap</b> smuggled inside an SVG
+          wrapper. The &#8734; / 1.0000 / 0.000 rows are the measurement of exactly that.
+        </p>
+        <p>
+          It is worth being clear about what this is: a category the other tools <b>do not offer at all</b>, not a
+          margin of victory on a shared axis.
+        </p>
+      </div>
+    </div>
+
+    <div class="notice">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9.2"></circle><path d="M12 16.4v-5.2M12 7.8h.01"></path>
+      </svg>
+      <span class="msg">
+        <b>Vectorizer.AI is not measured in these tables.</b> It is a paid, cloud-only service, so it could not be
+        run inside the same harness on the same corpus. We will not print a figure we did not measure, and we will
+        not estimate one. Its rows say <b>not measured</b>, and they will keep saying that until someone runs it
+        through the same script.
+      </span>
+    </div>
+
+    <h3 class="lbl" style="display:block;margin:0 0 8px">Synthetic fixtures</h3>
+    <div class="tablewrap" role="region" aria-labelledby="synthCap" tabindex="0">
+      <table class="m">
+        <caption id="synthCap" class="vh">Synthetic fixtures: size, PSNR, SSIM and mean Delta E 2000 for potrace, imagetracerjs and Vecline</caption>
+        <thead>
+          <tr>
+            <th scope="col">Tool</th>
+            <th scope="col" class="n">Size</th>
+            <th scope="col" class="n">PSNR</th>
+            <th scope="col" class="n">SSIM</th>
+            <th scope="col" class="n">Mean &Delta;E&#8320;&#8320;</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="grp"><th colspan="5" scope="colgroup">Bilevel line art <span>the case potrace was built for</span></th></tr>
+          <tr>
+            <th scope="row">potrace</th>
+            <td class="n">1.5 KB</td><td class="n">24.67 dB</td><td class="n">0.9511</td><td class="n">0.702</td>
+          </tr>
+          <tr>
+            <th scope="row">imagetracerjs</th>
+            <td class="n">1.7 KB</td><td class="n">19.75 dB</td><td class="n">0.8607</td><td class="n">1.667</td>
+          </tr>
+          <tr class="us">
+            <th scope="row">Vecline<span class="bitexact">bit-exact</span></th>
+            <td class="n b">1.4 KB<span class="vh"> (best)</span></td>
+            <td class="n b">&#8734;<span class="vh"> (best)</span></td>
+            <td class="n b">1.0000<span class="vh"> (best)</span></td>
+            <td class="n b">0.000<span class="vh"> (best)</span></td>
+          </tr>
+          <tr class="nm">
+            <th scope="row">Vectorizer.AI</th>
+            <td colspan="4">not measured &#8212; paid cloud service, cannot be run in this harness</td>
+          </tr>
+
+          <tr class="grp"><th colspan="5" scope="colgroup">Flat colour art <span>potrace row uses posterize</span></th></tr>
+          <tr>
+            <th scope="row">potrace posterize</th>
+            <td class="n">1.9 KB</td><td class="n">14.61 dB</td><td class="n">0.8010</td><td class="n">21.302</td>
+          </tr>
+          <tr>
+            <th scope="row">imagetracerjs</th>
+            <td class="n b">1.6 KB<span class="vh"> (best)</span></td>
+            <td class="n">26.56 dB</td><td class="n">0.9363</td><td class="n">0.662</td>
+          </tr>
+          <tr class="us">
+            <th scope="row">Vecline<span class="bitexact">bit-exact</span></th>
+            <td class="n">1.8 KB</td>
+            <td class="n b">&#8734;<span class="vh"> (best)</span></td>
+            <td class="n b">1.0000<span class="vh"> (best)</span></td>
+            <td class="n b">0.000<span class="vh"> (best)</span></td>
+          </tr>
+          <tr class="nm">
+            <th scope="row">Vectorizer.AI</th>
+            <td colspan="4">not measured &#8212; paid cloud service, cannot be run in this harness</td>
+          </tr>
+
+          <tr class="grp"><th colspan="5" scope="colgroup">Photo <span>synthetic &#183; gradient plus noise</span></th></tr>
+          <tr>
+            <th scope="row">potrace posterize</th>
+            <td class="n b">11.5 KB<span class="vh"> (best)</span></td>
+            <td class="n">13.19 dB</td><td class="n">0.6024</td><td class="n">23.911</td>
+          </tr>
+          <tr>
+            <th scope="row">imagetracerjs</th>
+            <td class="n">11.8 KB</td><td class="n">26.85 dB</td><td class="n">0.7143</td><td class="n">5.623</td>
+          </tr>
+          <tr class="us">
+            <th scope="row">Vecline</th>
+            <td class="n">19.0 KB</td>
+            <td class="n b">31.12 dB<span class="vh"> (best)</span></td>
+            <td class="n b">0.7750<span class="vh"> (best)</span></td>
+            <td class="n b">2.940<span class="vh"> (best)</span></td>
+          </tr>
+          <tr class="nm">
+            <th scope="row">Vectorizer.AI</th>
+            <td colspan="4">not measured &#8212; paid cloud service, cannot be run in this harness</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="legend">
+      <span><i>Magenta, underlined</i> = best in that column for that fixture.</span>
+      <span><b>&#8734;</b> = bit-exact re-rasterisation.</span>
+    </p>
+
+    <h3 class="lbl" style="display:block;margin:26px 0 8px">Real photographs &#183; the Kodak set at 480&nbsp;px</h3>
+    <div class="tablewrap" role="region" aria-labelledby="kodakCap" tabindex="0">
+      <table class="m">
+        <caption id="kodakCap" class="vh">Kodak photographs: size, PSNR, SSIM and mean Delta E 2000 for potrace posterize, imagetracerjs and Vecline</caption>
+        <thead>
+          <tr>
+            <th scope="col">Tool</th>
+            <th scope="col" class="n">Size</th>
+            <th scope="col" class="n">PSNR</th>
+            <th scope="col" class="n">SSIM</th>
+            <th scope="col" class="n">Mean &Delta;E&#8320;&#8320;</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="grp"><th colspan="5" scope="colgroup">Portrait <span>skin, soft transitions</span></th></tr>
+          <tr>
+            <th scope="row">potrace posterize</th>
+            <td class="n b">729.4 KB<span class="vh"> (best)</span></td>
+            <td class="n">18.51 dB</td><td class="n">0.6897</td><td class="n">18.030</td>
+          </tr>
+          <tr>
+            <th scope="row">imagetracerjs</th>
+            <td class="n">1620.5 KB</td><td class="n">25.47 dB</td><td class="n">0.7093</td><td class="n">5.957</td>
+          </tr>
+          <tr class="us">
+            <th scope="row">Vecline</th>
+            <td class="n">1337.9 KB</td>
+            <td class="n b">34.80 dB<span class="vh"> (best)</span></td>
+            <td class="n b">0.9140<span class="vh"> (best)</span></td>
+            <td class="n b">2.663<span class="vh"> (best)</span></td>
+          </tr>
+          <tr class="nm">
+            <th scope="row">Vectorizer.AI</th>
+            <td colspan="4">not measured &#8212; paid cloud service, cannot be run in this harness</td>
+          </tr>
+
+          <tr class="grp"><th colspan="5" scope="colgroup">Lighthouse <span>large smooth sky</span></th></tr>
+          <tr>
+            <th scope="row">potrace posterize</th>
+            <td class="n b">860.0 KB<span class="vh"> (best)</span></td>
+            <td class="n">20.76 dB</td><td class="n">0.7671</td><td class="n">10.909</td>
+          </tr>
+          <tr>
+            <th scope="row">imagetracerjs</th>
+            <td class="n">2010.2 KB</td><td class="n">24.58 dB</td><td class="n">0.7465</td><td class="n">4.900</td>
+          </tr>
+          <tr class="us">
+            <th scope="row">Vecline</th>
+            <td class="n">1742.7 KB</td>
+            <td class="n b">36.26 dB<span class="vh"> (best)</span></td>
+            <td class="n b">0.9453<span class="vh"> (best)</span></td>
+            <td class="n b">2.575<span class="vh"> (best)</span></td>
+          </tr>
+          <tr class="nm">
+            <th scope="row">Vectorizer.AI</th>
+            <td colspan="4">not measured &#8212; paid cloud service, cannot be run in this harness</td>
+          </tr>
+
+          <tr class="grp"><th colspan="5" scope="colgroup">Parrots <span>fine detail, saturated colour</span></th></tr>
+          <tr>
+            <th scope="row">potrace posterize</th>
+            <td class="n b">197.1 KB<span class="vh"> (best)</span></td>
+            <td class="n">17.09 dB</td><td class="n">0.7152</td><td class="n">17.566</td>
+          </tr>
+          <tr>
+            <th scope="row">imagetracerjs</th>
+            <td class="n">300.8 KB</td><td class="n">25.81 dB</td><td class="n">0.7615</td><td class="n">6.317</td>
+          </tr>
+          <tr class="us">
+            <th scope="row">Vecline</th>
+            <td class="n">309.5 KB</td>
+            <td class="n b">31.18 dB<span class="vh"> (best)</span></td>
+            <td class="n b">0.8460<span class="vh"> (best)</span></td>
+            <td class="n b">3.686<span class="vh"> (best)</span></td>
+          </tr>
+          <tr class="nm">
+            <th scope="row">Vectorizer.AI</th>
+            <td colspan="4">not measured &#8212; paid cloud service, cannot be run in this harness</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="foot">
+      <b>Smaller is not the same as better.</b> potrace posterize wins the size column on every photograph, and it
+      wins it by discarding colour &#8212; the same rows carry the worst PSNR, SSIM and &Delta;E&#8320;&#8320; in the table
+      (&Delta;E&#8320;&#8320; of 10.9 to 23.9 is a difference you can see without measuring). Size is only meaningful
+      read alongside the three fidelity columns, which is why all four are printed together and none of them is
+      printed alone.
+    </p>
+    <p class="foot">
+      The library&#8217;s own README carries a wider version of this table that also measures <b>vtracer</b>, the
+      strongest open-source colour tracer, which leads Vecline on the synthetic-photo fixture. It is linked, not
+      hidden: <a href="https://github.com/shunyagatha/Vecline#compared-with-other-vectorizers" rel="noopener">see the full comparison</a>.
+    </p>
+  </section>
+
+  <!-- ======================= VECTORIZER.AI ======================= -->
+  <section class="sec" aria-labelledby="axisH">
+    <div class="sechead">
+      <h2 id="axisH">Vecline vs Vectorizer.AI, axis by axis</h2>
+      <p>Vectorizer.AI is paid, cloud-hosted and closed source. Twelve axes, and it takes one of them.</p>
+    </div>
+
+    <div class="concede">
+      <div class="cap">
+        <span class="tag">The row we lose</span>
+        <span class="t">Start here, not at the bottom</span>
+      </div>
+      <div class="body">
+        <h3>On hard photographic and complex art, Vectorizer.AI is likely better.</h3>
+        <p>
+          It runs proprietary neural networks that <b>infer the shapes a human meant to draw</b> &#8212; separating an
+          object from a busy background, closing a line a scanner broke, guessing intent where the pixels are
+          ambiguous. Vecline does none of that. It is <b>deterministic and classical</b>: quantise, contour, fit
+          curves, measure. On a difficult photograph or dense illustration, inference is a real advantage, and we
+          are not going to pretend otherwise.
+        </p>
+        <p>
+          <b>We took that trade knowingly.</b> A model that infers is a model that can be silently retrained, so the
+          same file put through it next year can come back different. Determinism means the same input gives the
+          same output forever &#8212; auditable, diffable, safe to put in a build pipeline. It also means the engine
+          can run entirely on your machine, with no upload, no account and no dependency on a company continuing to
+          exist. Every measured row above is a consequence of the same choice, and so is this one.
+        </p>
+        <p>
+          A comparison page that wins every row is not a comparison, it is an advertisement. This is the row we
+          lose; it is why the other eleven are worth reading.
+        </p>
+      </div>
+    </div>
+
+    <div class="tablewrap" role="region" aria-labelledby="axisCap" tabindex="0">
+      <table class="ax">
+        <caption id="axisCap" class="vh">Vecline compared with Vectorizer.AI across twelve axes</caption>
+        <thead>
+          <tr>
+            <th scope="col">Axis</th>
+            <th scope="col">Vecline</th>
+            <th scope="col">Vectorizer.AI</th>
+            <th scope="col">Better</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="lost">
+            <th scope="row" class="axis">Tracing quality on hard photographic and complex art</th>
+            <td class="ours">Deterministic and classical &#8212; no shape inference</td>
+            <td class="theirs">Proprietary neural networks that infer intended shapes</td>
+            <td class="lose"><span class="who o">Vectorizer.AI</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Price</th>
+            <td class="ours">Free and unlimited</td>
+            <td class="theirs">Paid, per image</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Privacy</th>
+            <td class="ours">Converts in your browser &#8212; the image is never uploaded</td>
+            <td class="theirs">Image is uploaded to the cloud</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Offline</th>
+            <td class="ours">Works fully offline</td>
+            <td class="theirs">Requires a connection</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Account</th>
+            <td class="ours">None</td>
+            <td class="theirs">Required</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Openness</th>
+            <td class="ours">Engine is MIT open source</td>
+            <td class="theirs">Closed</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Reproducibility</th>
+            <td class="ours">Deterministic &#8212; same input, same output, forever</td>
+            <td class="theirs">Silently versioned model</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Measured quality</th>
+            <td class="ours">SSIM, PSNR and &Delta;E&#8320;&#8320; reported for every conversion</td>
+            <td class="theirs">None reported</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Provable lossless mode</th>
+            <td class="ours">Yes &#8212; bit-exact vector geometry on flat art</td>
+            <td class="theirs">None</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Maker output</th>
+            <td class="ours">Centerline, G-code and DXF for laser, CNC and plotter</td>
+            <td class="theirs">No G-code, no centerline</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Documents</th>
+            <td class="ours">PDF and Office &#8594; images or vector, in the same tool</td>
+            <td class="theirs">None</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+          <tr>
+            <th scope="row" class="axis">Automation</th>
+            <td class="ours">CLI, npm library, MCP server for AI agents, GitHub Action, Vite plugin</td>
+            <td class="theirs">REST API</td>
+            <td class="win"><span class="who v">Vecline</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="foot">
+      Every row above describes what each tool offers, not how well it scores &#8212; because
+      <b>Vectorizer.AI&#8217;s quality was not measured here</b>. It is paid and cloud-only, so it could not go through
+      the same harness as potrace, imagetracerjs and Vecline. That is why the quality row says
+      &#8220;likely better&#8221; and carries no number: an honest <em>likely</em> beats a fabricated decimal.
+    </p>
+  </section>
+
+  <!-- ======================= CLOSING ======================= -->
+  <section class="close" aria-labelledby="closeH">
+    <h2 id="closeH">Check it yourself &#8212; that is the whole point</h2>
+    <p>
+      Nothing on this page asks for trust. The engine is <b>MIT licensed</b>, the harness is
+      <code>scripts/compare.mjs</code> in the repo, the corpus is public, and
+      <code>npm&nbsp;run&nbsp;compare</code> regenerates every figure above on your own machine. If a number here
+      does not survive that, it is a bug in the page and we want to know.
+    </p>
+    <p>
+      And the studio does the same thing per conversion: <b>SSIM, PSNR and &Delta;E&#8320;&#8320; on every single
+      output</b>, measured against your source, in your browser, with the file never leaving your device.
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="./">Open the studio</a>
+      <a class="btn secondary" href="https://github.com/shunyagatha/Vecline" rel="noopener">Read the engine on GitHub</a>
+    </div>
+  </section>
+
+  <footer class="site">
+    <span>Vecline &#183; engine MIT licensed</span>
+    <a href="./">Studio</a>
+    <a href="https://github.com/shunyagatha/Vecline" rel="noopener">GitHub</a>
+    <a href="https://www.npmjs.com/package/vecline" rel="noopener">npm</a>
+    <a href="https://github.com/shunyagatha/Vecline#readme" rel="noopener">Docs</a>
+  </footer>
+
+</div>
+
+<script>
+/* Theme toggle — same key, same behaviour, same icon as the studio. */
+(function () {
+  var KEY = 'vecline-theme';
+  var btn = document.getElementById('theme');
+  var q = window.matchMedia('(prefers-color-scheme: dark)');
+
+  var MOON = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.4 14.6A8.6 8.6 0 0 1 9.4 3.6a8.6 8.6 0 1 0 11 11z"></path></svg>';
+  var SUN = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"></circle><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6"></path></svg>';
+
+  function dark() {
+    var a = document.documentElement.getAttribute('data-theme');
+    if (a === 'dark') return true;
+    if (a === 'light') return false;
+    return q.matches;
+  }
+
+  function paint() {
+    var d = dark();
+    btn.setAttribute('aria-label', d ? 'Switch to light theme' : 'Switch to dark theme');
+    btn.innerHTML = d ? MOON : SUN;
+  }
+
+  btn.addEventListener('click', function () {
+    var next = dark() ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try {
+      localStorage.setItem(KEY, next);
+    } catch (e) {
+      /* Private-mode storage can refuse writes; the choice still holds this session. */
+    }
+    paint();
+  });
+
+  // Only meaningful while no explicit choice is stored — then the icon follows the system.
+  if (q.addEventListener) q.addEventListener('change', paint);
+  paint();
+})();
+</script>
+</body>
+</html>

@@ -14,6 +14,7 @@ const CACHE = 'vecline-studio-__BUILD_ID__';
 const SHELL = [
   './',
   './index.html',
+  './compare.html',
   './app.js',
   './worker.js',
   './manifest.webmanifest',
