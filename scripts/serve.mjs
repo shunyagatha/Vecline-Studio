@@ -9,8 +9,12 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../dist/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+// `URL.pathname` keeps its percent-encoding and its leading slash, so a checkout
+// in a directory with a space (or any non-ASCII character) would resolve to a
+// path that does not exist. `fileURLToPath` is the only correct conversion.
+const ROOT = fileURLToPath(new URL('../dist/', import.meta.url));
 const PORT = Number(process.env.PORT) || 5173;
 
 const TYPES = {
