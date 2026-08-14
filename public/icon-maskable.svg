@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Vecline Studio">
+  <title>Vecline Studio</title>
+  <!--
+    Maskable variant. Android crops this to a circle (or squircle) of its
+    choosing, so the artwork is scaled into the 80% safe zone and the background
+    is bled to the full square — a maskable icon that reuses the normal padding
+    gets its corners eaten.
+  -->
+  <rect width="512" height="512" fill="#1B1220"/>
+  <g transform="translate(256 256) scale(0.8) translate(-256 -256)">
+    <g fill="#0A6E8A">
+      <rect x="96" y="316" width="44" height="44"/>
+      <rect x="140" y="272" width="44" height="44"/>
+      <rect x="184" y="228" width="44" height="44"/>
+      <rect x="228" y="184" width="44" height="44"/>
+    </g>
+    <path d="M118 338 C 210 338 246 206 338 206"
+          fill="none" stroke="#D1006F" stroke-width="34"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <g stroke="#EFE9EF" stroke-width="10" fill="none" opacity="0.85">
+      <path d="M118 338 L 210 338"/>
+      <path d="M338 206 L 246 206"/>
+    </g>
+    <g fill="#EFE9EF">
+      <circle cx="118" cy="338" r="24"/>
+      <circle cx="338" cy="206" r="24"/>
+    </g>
+    <g fill="#1B1220" stroke="#EFE9EF" stroke-width="9">
+      <rect x="196" y="324" width="28" height="28" rx="3"/>
+      <rect x="232" y="192" width="28" height="28" rx="3"/>
+    </g>
+  </g>
+</svg>
