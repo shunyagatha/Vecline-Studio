@@ -39,7 +39,8 @@ common formats its decoder is native and colour-managed.
 
 | | |
 |---|---|
-| Vector & machine | SVG, PNG, DXF, EPS, PDF, G-code |
+| Vector & machine | SVG, PNG, DXF, EPS, PDF, G-code — DXF can declare a physical cut size |
+| Raster → raster | WebP, JPEG (browser encoders) and BMP, TGA, PPM (vecline's own, which no browser writes) |
 | Web | React / Vue / Svelte / Solid component, favicon `.ico`, LQIP placeholder, BlurHash, palette as CSS custom properties |
 | Makers & checking | Colour separations (one SVG per ink — screen print, vinyl, DTF), CIEDE2000 difference heatmap |
 | Many images | `<symbol>` sprite sheet (rasters traced on the way in), animated GIF/WebP → one CSS-animated SVG |

@@ -8,7 +8,7 @@
  * never interpolates, estimates or remembers a stale value.
  */
 
-import { Engine, decodeFile, decodeFileDetailed, decodeFrames, download, rasterizeSvg, MIME, EXPORT_EXT } from '../engine/client.js';
+import { Engine, decodeFile, decodeFileDetailed, decodeFrames, download, rasterizeSvg, encodeRasterImage, MIME, RASTER_MIME, EXPORT_EXT, type RasterTarget } from '../engine/client.js';
 import { isPdf, openPdf, type PdfPages } from '../engine/pdf.js';
 import { isOfficeDocument, probeBridge, convertViaBridge } from '../engine/bridge.js';
 import type {
@@ -1385,7 +1385,15 @@ const EXPORT_LABEL: Partial<Record<ExportFormat | MultiExportFormat | ExtraExpor
   'palette-css': 'Palette CSS',
 };
 
-type ExtraExport = 'png' | 'sprite' | 'animated';
+/** Raster re-encodes of the source, as menu ids. */
+const RASTER_EXPORTS = ['raster-webp', 'raster-jpeg', 'raster-bmp', 'raster-tga', 'raster-pnm'] as const;
+type RasterExport = typeof RASTER_EXPORTS[number];
+// A real type guard:  reads fine but narrows nothing, so the union
+// stayed wide and every later branch saw a format it could not handle.
+const isRasterExport = (f: string): f is RasterExport =>
+  (RASTER_EXPORTS as readonly string[]).includes(f);
+
+type ExtraExport = 'png' | 'sprite' | 'animated' | RasterExport;
 
 async function exportAs(format: ExportFormat | MultiExportFormat | ExtraExport): Promise<void> {
   const src = source;
@@ -1400,6 +1408,17 @@ async function exportAs(format: ExportFormat | MultiExportFormat | ExtraExport):
       const raster = await rasterizeSvg(r.svg, src.image.width * PNG_SCALE, src.image.height * PNG_SCALE);
       const blob = await canvasToBlob(rasterToCanvas(raster), 'image/png');
       download(new Uint8Array(await blob.arrayBuffer()), `${baseName()}@${PNG_SCALE}x.png`, MIME.png);
+    } else if (isRasterExport(format)) {
+      // Raster → raster: the source's own pixels, re-encoded. No tracing, no
+      // vector step — this is the format matrix the library advertises, which
+      // the studio previously could not express at all.
+      const target = format.slice('raster-'.length) as RasterTarget;
+      const bytes = await encodeRasterImage(src.image, target);
+      const ext = target === 'pnm' ? 'ppm' : target;
+      download(bytes, `${baseName()}.${ext}`, RASTER_MIME[target]);
+      const delta = Math.round(((bytes.length - src.bytes) / src.bytes) * 100);
+      toast(`${ext.toUpperCase()} saved — ${fmtBytes(bytes.length)} (${delta >= 0 ? '+' : ''}${delta}%)`);
+      return;
     } else if (format === 'sprite') {
       await exportSprite();
       return;

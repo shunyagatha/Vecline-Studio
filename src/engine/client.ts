@@ -13,7 +13,7 @@
  * Nothing here touches the network. Every byte stays in the tab.
  */
 
-import { decodeFallback, decodeTgaFallback } from 'vecline/core';
+import { decodeFallback, decodeTgaFallback, encodeBmp, encodePnm, encodeTga } from 'vecline/core';
 import type {
   ConvertResult, ConvertSettings, ExportFormat, MultiExportFormat, ExportedFile, Metrics, RasterImage,
   WorkerRequest, WorkerResponse,
@@ -287,6 +287,78 @@ function drawToImageData(
   ctx.drawImage(source, 0, 0, width, height);
   const { data } = ctx.getImageData(0, 0, width, height);
   return { width, height, data };
+}
+
+/**
+ * Raster → raster, in the tab.
+ *
+ * The library advertises a square 11×11 format matrix, and the studio could
+ * previously express none of it — it converted *into* vector and out to PNG,
+ * and that was all. So "121 conversions" was a claim about the CLI being made
+ * on behalf of the whole product.
+ *
+ * Two engines, chosen per format and for a reason:
+ *
+ * - **The browser** encodes PNG, JPEG and WebP. Its encoders are native and
+ *   hardware-accelerated; reimplementing them in TypeScript would be slower and
+ *   worse.
+ * - **`vecline/core`** encodes BMP, PNM and TGA, which no browser will write at
+ *   all. These are the from-scratch codecs, and this is the case they exist for.
+ *
+ * AVIF, TIFF and GIF are deliberately absent rather than faked: browsers decode
+ * all three and encode none of them, and there is no `ImageEncoder` to reach
+ * for. Offering a button that silently produced a PNG with the wrong extension
+ * would be worse than not offering it.
+ */
+export type RasterTarget = 'png' | 'jpeg' | 'webp' | 'bmp' | 'pnm' | 'tga';
+
+const BROWSER_ENCODED: Record<string, string> = {
+  png: 'image/png',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+};
+
+export const RASTER_MIME: Record<RasterTarget, string> = {
+  png: 'image/png',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  pnm: 'image/x-portable-pixmap',
+  tga: 'image/x-targa',
+};
+
+export async function encodeRasterImage(
+  image: RasterImage,
+  target: RasterTarget,
+  quality = 0.92,
+): Promise<Uint8Array> {
+  const mime = BROWSER_ENCODED[target];
+  if (mime) {
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('This browser did not provide a 2D canvas context.');
+    const buffer = ctx.createImageData(image.width, image.height);
+    buffer.data.set(image.data);
+    ctx.putImageData(buffer, 0, 0);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, mime, quality));
+    // `toBlob` falls back to PNG for a type it cannot encode rather than
+    // failing, so the result is checked instead of trusted — a "WebP" that is
+    // actually a PNG is exactly the silent wrongness this app exists to avoid.
+    if (!blob) throw new Error(`This browser could not encode ${target.toUpperCase()}.`);
+    if (blob.type !== mime) {
+      throw new Error(`This browser does not support encoding ${target.toUpperCase()}.`);
+    }
+    return new Uint8Array(await blob.arrayBuffer());
+  }
+
+  const source = image as unknown as Parameters<typeof encodeBmp>[0];
+  if (target === 'bmp') return encodeBmp(source);
+  if (target === 'pnm') return encodePnm(source, { variant: 'P6' });
+  return encodeTga(source, { rle: true });
 }
 
 /** Hand a produced file to the user. Everything was generated locally. */
