@@ -1,33 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Vecline Studio">
-  <title>Vecline Studio</title>
-  <!--
-    Maskable variant. Android crops this to a circle (or squircle) of its
-    choosing, so the artwork is scaled into the 80% safe zone and the background
-    is bled to the full square — a maskable icon that reuses the normal padding
-    gets its corners eaten.
-  -->
-  <rect width="512" height="512" fill="#1B1220"/>
-  <g transform="translate(256 256) scale(0.8) translate(-256 -256)">
-    <g fill="#0A6E8A">
-      <rect x="96" y="316" width="44" height="44"/>
-      <rect x="140" y="272" width="44" height="44"/>
-      <rect x="184" y="228" width="44" height="44"/>
-      <rect x="228" y="184" width="44" height="44"/>
-    </g>
-    <path d="M118 338 C 210 338 246 206 338 206"
-          fill="none" stroke="#D1006F" stroke-width="34"
-          stroke-linecap="round" stroke-linejoin="round"/>
-    <g stroke="#EFE9EF" stroke-width="10" fill="none" opacity="0.85">
-      <path d="M118 338 L 210 338"/>
-      <path d="M338 206 L 246 206"/>
-    </g>
-    <g fill="#EFE9EF">
-      <circle cx="118" cy="338" r="24"/>
-      <circle cx="338" cy="206" r="24"/>
-    </g>
-    <g fill="#1B1220" stroke="#EFE9EF" stroke-width="9">
-      <rect x="196" y="324" width="28" height="28" rx="3"/>
-      <rect x="232" y="192" width="28" height="28" rx="3"/>
-    </g>
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<!-- Maskable: a full-bleed paper ground so any mask (circle, squircle, rounded
+     square) crops cleanly, with the logo held well inside the safe zone. Fixed
+     colours, since a PWA icon has no page CSS to inherit. -->
+<rect width="512" height="512" fill="#EFE9EF"/>
+<defs><linearGradient id="vgrad" x1="0" y1="1" x2="1" y2="0">
+<stop offset="0" stop-color="#A3005A"/><stop offset="1" stop-color="#FF4D9E"/>
+</linearGradient></defs>
+<g transform="translate(86 95) scale(0.84)" fill-rule="evenodd">
+<path d="M7 96L130 96L179 173L153 197L110 130L70 131L128 221L102 246L7 98ZM353 96L187 377L139 303L164 277L187 310L264 180L353 97Z" fill="#172c49"/>
+<path d="M395 6L399 8L380 87L358 69L48 368L23 344L336 45L318 25L395 7Z" fill="url(#vgrad)"/>
+</g>
 </svg>

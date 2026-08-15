@@ -280,15 +280,15 @@ button{font:inherit;color:inherit}
   flex-wrap:wrap;
 }
 .brandwrap{position:relative;padding:9px 12px;flex:0 0 auto;display:flex;align-items:center;gap:12px}
-/* The logo keeps its native navy + teal in both themes, so it sits on a light
-   chip — otherwise the navy would vanish against the dark ground. */
-.brandmark{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:46px;height:46px;flex:0 0 auto;
-  background:#FBFAFC;border:1px solid var(--line-2);border-radius:var(--r-m);
-  box-shadow:var(--shadow);
-}
-.brandmark svg{width:34px;height:34px;display:block}
+/* The logo wears the studio's own palette rather than its imported colours: the
+   monogram takes the theme ink (dark on light, light on dark — always legible,
+   no plate needed) and the arrow the magenta accent. It re-tints with the theme
+   because the fills are CSS variables, so one mark serves light and dark. */
+.brandmark{display:inline-flex;align-items:center;flex:0 0 auto}
+.brandmark svg{width:40px;height:40px;display:block}
+.brandmark .mk{fill:var(--ink)}
+.brandmark .g0{stop-color:var(--accent-text)}
+.brandmark .g1{stop-color:var(--accent)}
 .brandwrap::before{
   content:"";
   position:absolute;
@@ -1016,8 +1016,8 @@ details.adv .body{margin-top:13px}
       <i></i><i></i><i></i><i></i>
       <span class="brandmark" aria-hidden="true">
         <svg viewBox="0 0 405 384" fill-rule="evenodd" xmlns="http://www.w3.org/2000/svg">
-          <defs><linearGradient id="vgrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2a96a0"/><stop offset="1" stop-color="#63d9c9"/></linearGradient></defs>
-          <path d="M7 96L130 96L179 173L153 197L110 130L70 131L128 221L102 246L7 98ZM353 96L187 377L139 303L164 277L187 310L264 180L353 97Z" fill="#172c49"/>
+          <defs><linearGradient id="vgrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" class="g0"/><stop offset="1" class="g1"/></linearGradient></defs>
+          <path class="mk" d="M7 96L130 96L179 173L153 197L110 130L70 131L128 221L102 246L7 98ZM353 96L187 377L139 303L164 277L187 310L264 180L353 97Z"/>
           <path d="M395 6L399 8L380 87L358 69L48 368L23 344L336 45L318 25L395 7Z" fill="url(#vgrad)"/>
         </svg>
       </span>
