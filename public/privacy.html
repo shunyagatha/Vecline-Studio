@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Privacy Policy — Vecline</title>
+<meta name="description" content="Vecline collects nothing. Your images are converted on your own device and never uploaded. This page explains exactly what that means and how to verify it.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<style>
+:root{
+  --paper:#EFE9EF; --surface:#FDFBFD; --line:#E1D8E2;
+  --ink:#1B1220; --ink-2:#665A6E; --ink-3:#8D8194;
+  --accent:#D1006F; --accent-text:#A3005A; --accent-soft:#FBE6F1;
+  --ok:#0B7A55; --ok-soft:#E2F3EC;
+  --font-display:"Bahnschrift","DIN Alternate","Roboto Condensed","Arial Narrow",system-ui,sans-serif;
+  --font-ui:"Segoe UI Variable Text","Segoe UI",-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  --font-mono:"Cascadia Mono","SF Mono","JetBrains Mono",Consolas,Menlo,ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#120E18; --surface:#1C1624; --line:#302839;
+    --ink:#F3EDF4; --ink-2:#AA9DB2; --ink-3:#82758B;
+    --accent:#FF4D9E; --accent-text:#FF83BB; --accent-soft:#361126;
+    --ok:#4BD3A0; --ok-soft:#0C2C22;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#120E18; --surface:#1C1624; --line:#302839;
+  --ink:#F3EDF4; --ink-2:#AA9DB2; --ink-3:#82758B;
+  --accent:#FF4D9E; --accent-text:#FF83BB; --accent-soft:#361126;
+  --ok:#4BD3A0; --ok-soft:#0C2C22;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--font-ui); font-size:16px; line-height:1.65;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:70ch; margin:0 auto; padding:clamp(28px,5vw,64px) clamp(18px,4vw,28px) 96px}
+a{color:var(--accent-text)}
+a:focus-visible,summary:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.eyebrow{
+  font-family:var(--font-display); font-size:12px; font-weight:700;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--ink-3); margin:0 0 10px;
+}
+h1{
+  font-family:var(--font-display); font-size:clamp(30px,5vw,44px); font-weight:700;
+  line-height:1.05; letter-spacing:.01em; margin:0 0 8px; text-wrap:balance;
+}
+h2{
+  font-family:var(--font-display); font-size:clamp(18px,2.4vw,22px); font-weight:700;
+  letter-spacing:.01em; margin:40px 0 10px; text-wrap:balance;
+}
+p,li{color:var(--ink-2)}
+p{margin:0 0 14px}
+ul{margin:0 0 14px; padding-left:1.15em}
+li{margin:0 0 7px}
+strong{color:var(--ink); font-weight:600}
+code{font-family:var(--font-mono); font-size:.9em; background:var(--accent-soft); color:var(--accent-text); padding:1px 5px; border-radius:3px}
+.lede{font-size:19px; color:var(--ink); margin-bottom:22px}
+.claim{
+  background:var(--ok-soft); border-left:3px solid var(--ok);
+  padding:16px 18px; margin:26px 0; border-radius:0 6px 6px 0;
+}
+.claim p{margin:0; color:var(--ink)}
+.meta{
+  border-top:1px solid var(--line); margin-top:52px; padding-top:18px;
+  font-size:14px; color:var(--ink-3);
+}
+.back{
+  display:inline-block; margin-bottom:26px; font-family:var(--font-display);
+  font-size:13px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  text-decoration:none;
+}
+.back:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="./">← Vecline Studio</a>
+
+  <p class="eyebrow">Privacy Policy</p>
+  <h1>Vecline collects nothing.</h1>
+
+  <p class="lede">
+    Not "we anonymise it", not "we only keep it briefly". There is no server to
+    send anything to, so there is nothing to collect, store, share, or retain.
+  </p>
+
+  <p>
+    This policy covers <strong>Vecline Studio</strong> (the web app at
+    vecline.xyz), the <strong>vecline</strong> command-line tool and library, and
+    the <strong>Vecline MCP server</strong> and desktop extension.
+  </p>
+
+  <div class="claim">
+    <p>
+      <strong>Your images and documents never leave your device.</strong> Every
+      conversion — tracing, measuring, cropping, PDF and Office rendering —
+      happens on the machine you are using, in your browser tab or on your own
+      computer.
+    </p>
+  </div>
+
+  <h2>What data is collected</h2>
+  <p><strong>None.</strong> Specifically, Vecline does not collect:</p>
+  <ul>
+    <li>the images, documents or files you convert, or anything derived from them</li>
+    <li>your name, email address, or any account details — there are no accounts</li>
+    <li>usage analytics, telemetry, event tracking, or crash reports</li>
+    <li>cookies, advertising identifiers, or fingerprinting signals</li>
+    <li>your IP address (beyond the ordinary web-server logs described below)</li>
+  </ul>
+
+  <h2>How your files are used and stored</h2>
+  <p>
+    Files you open are processed in memory on your device and are not written
+    anywhere except where you explicitly save them. Vecline Studio holds your
+    image only for as long as the tab is open; closing or reloading it discards
+    everything. Your theme preference is kept in your browser's own
+    <code>localStorage</code> and never leaves the browser.
+  </p>
+  <p>
+    The command-line tool, library, MCP server and desktop extension read and
+    write only the paths you give them.
+  </p>
+
+  <h2>Third parties</h2>
+  <p>
+    Nothing is shared with anyone, because nothing is collected. Vecline Studio
+    makes <strong>no network requests at all</strong> while converting — no
+    analytics, no fonts, no CDNs, no error reporting. Once loaded it works with
+    your connection switched off, which is the simplest proof of this claim.
+  </p>
+  <p>
+    Two honest exceptions, both under your control and neither involving your
+    files:
+  </p>
+  <ul>
+    <li>
+      <strong>Hosting.</strong> vecline.xyz is served by GitHub Pages, which
+      like any web host records standard request logs (IP address, timestamp,
+      user agent) when the page is downloaded. That is GitHub's processing, not
+      ours, and it covers loading the page — never its contents. See
+      <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">GitHub's privacy statement</a>.
+    </li>
+    <li>
+      <strong>Optional local helpers.</strong> The desktop extension may fetch
+      the <code>vecline</code> package from the npm registry the first time it
+      runs, and Office conversion invokes a copy of LibreOffice already
+      installed on your machine. Neither transmits your documents anywhere.
+    </li>
+  </ul>
+
+  <h2>Data retention</h2>
+  <p>
+    There is no retention period because there is no stored data. Nothing about
+    you or your files persists anywhere under our control, so there is nothing
+    to request, export, or delete. If you want to remove Vecline entirely,
+    uninstall the package or extension and clear the site from your browser.
+  </p>
+
+  <h2>Children</h2>
+  <p>
+    Vecline is a general-purpose tool that collects no personal data from anyone,
+    of any age.
+  </p>
+
+  <h2>How to verify all of this</h2>
+  <p>
+    You do not have to take our word for it, which is the point:
+  </p>
+  <ul>
+    <li>Open your browser's developer tools, watch the Network tab, and convert an image — you will see no outbound requests.</li>
+    <li>Disconnect from the internet and use the Studio anyway; it keeps working.</li>
+    <li>Read the source. The Studio's code is public at
+      <a href="https://github.com/shunyagatha/Vecline-Studio" rel="noopener">Vecline-Studio</a>, and the engine is open source (MIT) at
+      <a href="https://github.com/shunyagatha/Vecline" rel="noopener">Vecline</a>.</li>
+  </ul>
+
+  <h2>Changes to this policy</h2>
+  <p>
+    If this policy ever changes it will be updated on this page with a new date
+    below. Any change that introduced data collection would be announced in the
+    project's release notes, not made quietly.
+  </p>
+
+  <h2>Contact</h2>
+  <p>
+    Questions, or a privacy or security concern:
+    <a href="https://github.com/shunyagatha/Vecline/issues" rel="noopener">open an issue</a>
+    on the project, or email <a href="mailto:gathafm.com@gmail.com">gathafm.com@gmail.com</a>.
+  </p>
+
+  <p class="meta">Last updated 15 August 2026 · Vecline · <a href="./">vecline.xyz</a></p>
+</main>
+</body>
+</html>
