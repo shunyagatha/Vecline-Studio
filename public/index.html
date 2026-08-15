@@ -279,7 +279,16 @@ button{font:inherit;color:inherit}
   padding:20px 0 14px;
   flex-wrap:wrap;
 }
-.brandwrap{position:relative;padding:9px 12px;flex:0 0 auto}
+.brandwrap{position:relative;padding:9px 12px;flex:0 0 auto;display:flex;align-items:center;gap:12px}
+/* The logo keeps its native navy + teal in both themes, so it sits on a light
+   chip — otherwise the navy would vanish against the dark ground. */
+.brandmark{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:46px;height:46px;flex:0 0 auto;
+  background:#FBFAFC;border:1px solid var(--line-2);border-radius:var(--r-m);
+  box-shadow:var(--shadow);
+}
+.brandmark svg{width:34px;height:34px;display:block}
 .brandwrap::before{
   content:"";
   position:absolute;
@@ -1005,6 +1014,13 @@ details.adv .body{margin-top:13px}
   <header class="topbar">
     <div class="brandwrap">
       <i></i><i></i><i></i><i></i>
+      <span class="brandmark" aria-hidden="true">
+        <svg viewBox="0 0 405 384" fill-rule="evenodd" xmlns="http://www.w3.org/2000/svg">
+          <defs><linearGradient id="vgrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2a96a0"/><stop offset="1" stop-color="#63d9c9"/></linearGradient></defs>
+          <path d="M7 96L130 96L179 173L153 197L110 130L70 131L128 221L102 246L7 98ZM353 96L187 377L139 303L164 277L187 310L264 180L353 97Z" fill="#172c49"/>
+          <path d="M395 6L399 8L380 87L358 69L48 368L23 344L336 45L318 25L395 7Z" fill="url(#vgrad)"/>
+        </svg>
+      </span>
       <h1 class="brand">Vecline<em></em><span>Studio</span></h1>
     </div>
 
