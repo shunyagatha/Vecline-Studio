@@ -93,6 +93,23 @@ export class Engine {
     });
   }
 
+  /** Trace many icons into one `<symbol>` sheet. */
+  async sprite(
+    items: { id: string; image: RasterImage }[],
+    settings: ConvertSettings,
+  ): Promise<{ svg: string; count: number }> {
+    return this.send<{ svg: string; count: number }>({ kind: 'sprite', items, settings });
+  }
+
+  /** Trace many frames into one CSS-animated SVG. */
+  async animate(
+    frames: RasterImage[],
+    settings: ConvertSettings,
+    fps: number,
+  ): Promise<{ svg: string; frames: number }> {
+    return this.send<{ svg: string; frames: number }>({ kind: 'animate', frames, settings, fps });
+  }
+
   /**
    * Convert, then render the result and score it — the full "measured" loop
    * that no competitor performs. Returns both halves so the UI can show the
@@ -163,6 +180,53 @@ export async function decodeFile(file: Blob): Promise<RasterImage> {
     if (!decoded.image) throw browserFailure;
     const { width, height, data } = decoded.image;
     return { width, height, data };
+  }
+}
+
+/**
+ * Pull every frame out of an animated image.
+ *
+ * `createImageBitmap` only ever yields frame 0, so this goes through WebCodecs'
+ * `ImageDecoder`, which exposes the frame count and lets each be selected. That
+ * is a real portability cost — Chromium and Firefox have it, **Safari does
+ * not** — so the caller is told plainly rather than being handed a silent
+ * one-frame result, which is exactly the failure the library's own APNG bug
+ * taught us to avoid.
+ *
+ * Returns `null` when the format is not animated or the API is unavailable.
+ */
+export async function decodeFrames(file: Blob): Promise<RasterImage[] | null> {
+  const Decoder = (globalThis as { ImageDecoder?: unknown }).ImageDecoder as
+    | (new (init: { data: ArrayBuffer; type: string }) => {
+        completed: Promise<void>;
+        tracks: { selectedTrack?: { frameCount: number } };
+        decode: (o: { frameIndex: number }) => Promise<{ image: VideoFrame }>;
+        close: () => void;
+      })
+    | undefined;
+  if (!Decoder) return null;
+
+  const buffer = await file.arrayBuffer();
+  const decoder = new Decoder({ data: buffer, type: file.type || 'image/gif' });
+  try {
+    await decoder.completed;
+    const count = decoder.tracks.selectedTrack?.frameCount ?? 1;
+    if (count < 2) return null;
+
+    const frames: RasterImage[] = [];
+    for (let i = 0; i < count; i++) {
+      const { image } = await decoder.decode({ frameIndex: i });
+      try {
+        frames.push(drawToImageData(image as unknown as CanvasImageSource, image.displayWidth, image.displayHeight));
+      } finally {
+        image.close();
+      }
+    }
+    return frames;
+  } catch {
+    return null;
+  } finally {
+    decoder.close();
   }
 }
 

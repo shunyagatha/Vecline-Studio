@@ -42,15 +42,22 @@ common formats its decoder is native and colour-managed.
 | Vector & machine | SVG, PNG, DXF, EPS, PDF, G-code |
 | Web | React / Vue / Svelte / Solid component, favicon `.ico`, LQIP placeholder, BlurHash, palette as CSS custom properties |
 | Makers & checking | Colour separations (one SVG per ink — screen print, vinyl, DTF), CIEDE2000 difference heatmap |
+| Many images | `<symbol>` sprite sheet (rasters traced on the way in), animated GIF/WebP → one CSS-animated SVG |
+
+**Content-aware crop** is in the control rail: pick an aspect and the frame is
+chosen by edge energy and colour saturation, so a subject sitting off to one
+side survives a crop that centring would cut away.
 
 **Not in the app, because a browser tab genuinely cannot:** Office ⇄ PDF
 conversion, which drives your local LibreOffice through a child process. That
 is the only capability in the whole library with no browser path at all. Use
 the CLI or the MCP server for it.
 
-**Not in the app yet, though nothing stops it:** content-aware smart crop,
-sprite sheets, and animated GIF → animated SVG. All are pure and portable; they
-need input or view work rather than engine work.
+**One browser caveat, stated rather than hidden:** extracting the frames of an
+animated GIF or WebP needs WebCodecs' `ImageDecoder`, which Chrome, Edge and
+Firefox have and **Safari does not**. There, the animated-SVG export reports
+that plainly instead of silently handing back a one-frame file — the exact
+failure mode the library's own APNG bug taught us to avoid.
 
 Two honest caveats about what *is* here:
 

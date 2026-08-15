@@ -33,6 +33,10 @@ import {
   encodeIco,
   encodeIcoDib,
   diffImages,
+  smartCrop,
+  cropImage,
+  svgSprite,
+  framesToAnimatedSvg,
 } from 'vecline/core';
 import type {
   ConvertResult, ConvertSettings, Metrics, RasterImage,
@@ -79,6 +83,21 @@ function prepare(image: RasterImage, settings: ConvertSettings): {
 } {
   const notes: string[] = [];
   let source = image;
+
+  // Crop first, so everything downstream — background detection, the palette,
+  // the metrics — describes the region actually being converted rather than the
+  // whole frame it was cut from.
+  if (settings.cropAspect) {
+    const [w, h] = settings.cropAspect;
+    const rect = smartCrop(source as never, { aspect: [w, h] } as never) as
+      { x: number; y: number; width: number; height: number };
+    source = cropImage(source as never, rect) as RasterImage;
+    notes.push(
+      `Cropped to ${w}:${h} — ${rect.width}×${rect.height} at (${rect.x}, ${rect.y}), ` +
+      'chosen by edge energy and colour saturation rather than by centring.',
+    );
+  }
+
   if (settings.removeBackground) {
     const r = removeBackground(source as never, {}) as { image: RasterImage };
     source = r.image;
@@ -273,6 +292,31 @@ function exportMany(image: RasterImage, settings: ConvertSettings): ExportedFile
   }));
 }
 
+/**
+ * Many icons into one `<symbol>` sheet, referenced with `<use href="#id">`.
+ *
+ * The on-trend replacement for icon fonts, and the reason to build it *here* is
+ * that rasters get traced on the way in — every other sprite tool starts from
+ * SVGs you already have.
+ */
+function sprite(items: { id: string; image: RasterImage }[], settings: ConvertSettings): string {
+  const traced = items.map(({ id, image }) => ({ id, svg: convert(image, settings).svg }));
+  return svgSprite(traced as never, {} as never) as string;
+}
+
+/**
+ * Many frames into one CSS-animated SVG — a negative-`animation-delay`
+ * flipbook, no JavaScript.
+ *
+ * Every frame is traced against a shared palette so colours cannot flicker
+ * between frames, and frame 0 doubles as the still poster a non-animating
+ * renderer or `prefers-reduced-motion` falls back to.
+ */
+function animate(frames: RasterImage[], settings: ConvertSettings, fps: number): string {
+  const svgs = frames.map((frame) => convert(frame, settings).svg);
+  return framesToAnimatedSvg(svgs, { fps } as never) as string;
+}
+
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
   let res: WorkerResponse;
@@ -283,6 +327,10 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       res = { id: req.id, ok: true, kind: 'measure', metrics: measure(req.a, req.b) };
     } else if (req.kind === 'export-many') {
       res = { id: req.id, ok: true, kind: 'export-many', files: exportMany(req.image, req.settings) };
+    } else if (req.kind === 'sprite') {
+      res = { id: req.id, ok: true, kind: 'sprite', svg: sprite(req.items, req.settings), count: req.items.length };
+    } else if (req.kind === 'animate') {
+      res = { id: req.id, ok: true, kind: 'animate', svg: animate(req.frames, req.settings, req.fps), frames: req.frames.length };
     } else if (req.kind === 'diff') {
       const d = diffImages(req.source as never, req.rendered as never, {} as never) as
         { image: RasterImage; changedFraction: number; maxDeltaE: number };

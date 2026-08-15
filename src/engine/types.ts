@@ -38,6 +38,12 @@ export interface ConvertSettings {
    * the entire point of that mode.
    */
   minify?: boolean;
+  /**
+   * Content-aware crop to this aspect ratio as [width, height], or absent for
+   * the whole frame. The subject is kept by scoring edge energy and colour
+   * saturation — a naive centre crop drops a subject that sits off to one side.
+   */
+  cropAspect?: [number, number];
 }
 
 export const DEFAULT_SETTINGS: ConvertSettings = {
@@ -83,7 +89,11 @@ export type WorkerRequest =
   | { id: number; kind: 'export-many'; image: RasterImage; settings: ConvertSettings; format: MultiExportFormat }
   // `rendered` is the SVG rasterised back to pixels — the diff heatmap compares
   // the source against what the output actually draws, not against itself.
-  | { id: number; kind: 'diff'; source: RasterImage; rendered: RasterImage };
+  | { id: number; kind: 'diff'; source: RasterImage; rendered: RasterImage }
+  // Many images in, one file out. Kept separate from 'export' because the whole
+  // studio is otherwise built around a single source image.
+  | { id: number; kind: 'sprite'; items: { id: string; image: RasterImage }[]; settings: ConvertSettings }
+  | { id: number; kind: 'animate'; frames: RasterImage[]; settings: ConvertSettings; fps: number };
 
 /**
  * Everything the studio can hand back as a file.
@@ -125,4 +135,6 @@ export type WorkerResponse =
   | { id: number; ok: true; kind: 'export'; data: string | Uint8Array; format: ExportFormat }
   | { id: number; ok: true; kind: 'export-many'; files: ExportedFile[] }
   | { id: number; ok: true; kind: 'diff'; image: RasterImage; changedFraction: number; maxDeltaE: number }
+  | { id: number; ok: true; kind: 'sprite'; svg: string; count: number }
+  | { id: number; ok: true; kind: 'animate'; svg: string; frames: number }
   | { id: number; ok: false; error: string };

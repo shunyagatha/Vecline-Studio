@@ -8,7 +8,7 @@
  * never interpolates, estimates or remembers a stale value.
  */
 
-import { Engine, decodeFile, download, rasterizeSvg, MIME, EXPORT_EXT } from '../engine/client.js';
+import { Engine, decodeFile, decodeFrames, download, rasterizeSvg, MIME, EXPORT_EXT } from '../engine/client.js';
 import type {
   ConvertResult, ConvertSettings, ExportFormat, MultiExportFormat, Metrics, Mode, Preset, RasterImage,
 } from '../engine/types.js';
@@ -161,6 +161,8 @@ interface UiState {
   gradients: boolean;
   primitives: boolean;
   removeBackground: boolean;
+  /** `"1:1"`, `"16:9"`, … or empty for the whole frame. */
+  cropAspect: string;
   budgetOn: boolean;
   budgetKB: number;
   canvasView: CanvasView;
@@ -177,6 +179,7 @@ const state: UiState = {
   gradients: false,
   primitives: false,
   removeBackground: false,
+  cropAspect: '',
   budgetOn: false,
   budgetKB: 24,
   canvasView: 'split',
@@ -193,6 +196,12 @@ interface Source {
   image: RasterImage;
   /** Object URL for the original file, shown in the source pane. */
   url: string;
+  /**
+   * The original bytes. Kept because `createImageBitmap` only ever yields frame
+   * zero — turning an animated GIF into an animated SVG means decoding the file
+   * again, per frame, through a different API.
+   */
+  file: Blob;
 }
 
 let source: Source | null = null;
@@ -252,6 +261,7 @@ function settingsFromState(): ConvertSettings {
     gradients: state.gradients,
     primitives: state.primitives,
     removeBackground: state.removeBackground,
+    ...(parseAspect(state.cropAspect) ? { cropAspect: parseAspect(state.cropAspect) as [number, number] } : {}),
   };
   // Carried for the readout, which compares the finished size against this cap
   // and reports whether it fits. It is deliberately *not* an instruction to the
@@ -402,6 +412,7 @@ async function loadFile(file: File): Promise<void> {
     bytes: file.size,
     image,
     url: URL.createObjectURL(file),
+    file,
   };
 
   srcImg.src = source.url;
@@ -942,6 +953,14 @@ detailRange.addEventListener('input', () => {
   scheduleRun();
 });
 
+const cropSelect = byId<HTMLSelectElement>('cropAspect');
+cropSelect.addEventListener('change', () => {
+  state.cropAspect = cropSelect.value;
+  // A crop changes the pixels being converted, so it re-runs like any other
+  // setting — the metrics must describe the cropped region, not the old frame.
+  scheduleRun();
+});
+
 budgetRange.addEventListener('input', () => {
   state.budgetKB = Number(budgetRange.value);
   budgetText.value = `${state.budgetKB} KB`;
@@ -1189,7 +1208,7 @@ moreMenu.addEventListener('click', (e: MouseEvent) => {
   const target = e.target instanceof Element ? e.target.closest<HTMLElement>('button[data-fmt]') : null;
   if (!target) return;
   closeMenu();
-  void exportAs((target.dataset['fmt'] ?? 'svg') as ExportFormat | MultiExportFormat | 'png');
+  void exportAs((target.dataset['fmt'] ?? 'svg') as ExportFormat | MultiExportFormat | ExtraExport);
 });
 
 document.addEventListener('click', (e: MouseEvent) => {
@@ -1203,17 +1222,73 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   }
 });
 
+/** `"16:9"` → `[16, 9]`; anything unparseable means "no crop". */
+function parseAspect(value: string): [number, number] | null {
+  const m = /^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/.exec(value.trim());
+  if (!m) return null;
+  const w = Number(m[1]);
+  const h = Number(m[2]);
+  return w > 0 && h > 0 ? [w, h] : null;
+}
+
 const PNG_SCALE = 2;
 
+/**
+ * A sprite sheet is the one export that needs *more* input than the studio
+ * holds, so it asks for it: pick several icons, each gets traced with the
+ * current settings, and they come back as one `<symbol>` sheet you reference
+ * with `<use href="#name">`. Every other sprite tool starts from SVGs you
+ * already have; tracing on the way in is the point.
+ */
+const spriteInput = byId<HTMLInputElement>('spriteInput');
+
+async function exportSprite(): Promise<void> {
+  const files = await new Promise<File[]>((resolve) => {
+    const onChange = (): void => {
+      spriteInput.removeEventListener('change', onChange);
+      resolve(Array.from(spriteInput.files ?? []));
+      spriteInput.value = '';
+    };
+    spriteInput.addEventListener('change', onChange);
+    spriteInput.click();
+  });
+  if (files.length === 0) return;
+
+  const items: { id: string; image: RasterImage }[] = [];
+  const skipped: string[] = [];
+  for (const file of files) {
+    try {
+      items.push({
+        // The filename becomes the symbol id, because that is what the author
+        // will type into `<use href="#…">`.
+        id: (file.name.replace(/\.[^.]+$/, '') || 'icon').replace(/[^a-z0-9_-]+/gi, '-').toLowerCase(),
+        image: await decodeFile(file),
+      });
+    } catch {
+      skipped.push(file.name);
+    }
+  }
+  if (items.length === 0) throw new Error('None of those files could be read as images.');
+
+  const out = await engine.sprite(items, settingsFromState());
+  download(out.svg, 'sprite.svg', MIME.svg);
+  toast(
+    `Sprite sheet saved — ${out.count} symbols` +
+    (skipped.length ? `, ${skipped.length} skipped` : ''),
+  );
+}
+
 /** Friendly names for the toast, where  reads badly. */
-const EXPORT_LABEL: Partial<Record<ExportFormat | MultiExportFormat | 'png', string>> = {
+const EXPORT_LABEL: Partial<Record<ExportFormat | MultiExportFormat | ExtraExport, string>> = {
   react: 'React component', vue: 'Vue component',
   svelte: 'Svelte component', solid: 'Solid component',
   ico: 'Favicon', lqip: 'LQIP placeholder', blurhash: 'BlurHash',
   'palette-css': 'Palette CSS',
 };
 
-async function exportAs(format: ExportFormat | MultiExportFormat | 'png'): Promise<void> {
+type ExtraExport = 'png' | 'sprite' | 'animated';
+
+async function exportAs(format: ExportFormat | MultiExportFormat | ExtraExport): Promise<void> {
   const src = source;
   const r = lastResult;
   if (!src || !r) return;
@@ -1226,6 +1301,23 @@ async function exportAs(format: ExportFormat | MultiExportFormat | 'png'): Promi
       const raster = await rasterizeSvg(r.svg, src.image.width * PNG_SCALE, src.image.height * PNG_SCALE);
       const blob = await canvasToBlob(rasterToCanvas(raster), 'image/png');
       download(new Uint8Array(await blob.arrayBuffer()), `${baseName()}@${PNG_SCALE}x.png`, MIME.png);
+    } else if (format === 'sprite') {
+      await exportSprite();
+      return;
+    } else if (format === 'animated') {
+      // Re-decode the original bytes: `createImageBitmap` gave us frame zero and
+      // nothing else, so the frames have to come from `ImageDecoder`.
+      const frames = await decodeFrames(src.file);
+      if (!frames) {
+        throw new Error(
+          'That file is not an animation, or this browser cannot read its frames. ' +
+          'Animated GIF and WebP work in Chrome, Edge and Firefox; Safari lacks the API.',
+        );
+      }
+      const out = await engine.animate(frames, settingsFromState(), 10);
+      download(out.svg, `${baseName()}.animated.svg`, MIME.svg);
+      toast(`Animated SVG saved — ${out.frames} frames, one shared palette`);
+      return;
     } else if (format === 'separations') {
       // One file per ink. Browsers rate-limit rapid programmatic downloads, so
       // they are spaced out — otherwise only the first two or three arrive and
