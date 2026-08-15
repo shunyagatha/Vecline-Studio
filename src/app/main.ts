@@ -10,6 +10,7 @@
 
 import { Engine, decodeFile, decodeFileDetailed, decodeFrames, download, rasterizeSvg, MIME, EXPORT_EXT } from '../engine/client.js';
 import { isPdf, openPdf, type PdfPages } from '../engine/pdf.js';
+import { isOfficeDocument, probeBridge, convertViaBridge } from '../engine/bridge.js';
 import type {
   ConvertResult, ConvertSettings, ExportFormat, MultiExportFormat, Metrics, Mode, Preset, RasterImage,
 } from '../engine/types.js';
@@ -406,22 +407,55 @@ async function loadFile(file: File): Promise<void> {
   // before. Without this the pane renders blank and nothing reports an error.
   let browserDisplayable = true;
   try {
-    const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
-    if (isPdf(head)) {
-      // The PDF engine is a separate chunk fetched on demand, so this is the
-      // one load path that can be slow for a reason the user should be told
-      // about rather than left guessing at.
-      toast('Loading the PDF engine…');
+    // An Office document has to become a PDF before anything here can read it,
+    // and only the user's own machine can do that. If a bridge is listening the
+    // whole chain stays local: .docx → their LibreOffice → PDF → mupdf in this
+    // tab → pixels → traced SVG.
+    if (isOfficeDocument(file.name)) {
+      const bridge = await probeBridge();
+      if (!bridge.available) {
+        setBusy(false);
+        showError(
+          'Office documents need the Vecline CLI running on your machine — a browser tab has no ' +
+          'office engine, and we will not upload your file to get one. Install it with ' +
+          '`npm i -g vecline`, run `vecline serve`, then drop this file again.',
+        );
+        return;
+      }
+      if (!bridge.office) {
+        setBusy(false);
+        showError(
+          'The local bridge is running but could not find LibreOffice, which does the actual ' +
+          'conversion. Install it from libreoffice.org, or restart with `vecline serve --soffice <path>`.',
+        );
+        return;
+      }
+      toast('Converting through your local LibreOffice…');
+      const asPdf = await convertViaBridge(file, file.name, 'pdf', bridge.port);
       closePdf();
-      pdf = await openPdf(new Uint8Array(await file.arrayBuffer()));
+      pdf = await openPdf(asPdf);
       pdfPage = 0;
       image = pdf.render(0, PDF_DPI);
       browserDisplayable = false;
       pdfNote = pdf.count > 1 ? ` · page 1 of ${pdf.count}` : ' · 1 page';
     } else {
-      const decoded = await decodeFileDetailed(file);
-      image = decoded.image;
-      browserDisplayable = decoded.browserDisplayable;
+      const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+      if (isPdf(head)) {
+        // The PDF engine is a separate chunk fetched on demand, so this is the
+        // one load path that can be slow for a reason the user should be told
+        // about rather than left guessing at.
+        toast('Loading the PDF engine…');
+        closePdf();
+        pdf = await openPdf(new Uint8Array(await file.arrayBuffer()));
+        pdfPage = 0;
+        image = pdf.render(0, PDF_DPI);
+        browserDisplayable = false;
+        pdfNote = pdf.count > 1 ? ` · page 1 of ${pdf.count}` : ' · 1 page';
+      } else {
+        const decoded = await decodeFileDetailed(file);
+        image = decoded.image;
+        browserDisplayable = decoded.browserDisplayable;
+      }
     }
   } catch (err) {
     setBusy(false);

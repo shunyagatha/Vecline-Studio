@@ -48,10 +48,24 @@ common formats its decoder is native and colour-managed.
 chosen by edge energy and colour saturation, so a subject sitting off to one
 side survives a crop that centring would cut away.
 
-**Not in the app, because a browser tab genuinely cannot:** Office ⇄ PDF
-conversion, which drives your local LibreOffice through a child process. That
-is the only capability in the whole library with no browser path at all. Use
-the CLI or the MCP server for it.
+**PDFs work.** Drop one and page 1 renders at 150 DPI — the same default
+`vecline doc` uses — then traces like any other image. The engine is mupdf
+compiled to WebAssembly, imported *dynamically*, so it is downloaded the first
+time you open a PDF and never by anyone who only converts images.
+
+**Office documents work too, if you run the CLI.** A tab has no office engine,
+and the two usual ways to give it one both cost something this product is built
+on: a ~300 MB LibreOffice-in-WASM destroys instant load, and uploading the file
+destroys the privacy claim. So neither. Run `vecline serve` and the studio hands
+the document to **your** machine:
+
+```bash
+npm install -g vecline && vecline serve
+```
+
+Every link stays local — `.docx` → your LibreOffice → PDF → mupdf in this tab →
+pixels → traced SVG. When the bridge is not running, the studio says what to
+install rather than failing at the moment you try to convert.
 
 **One browser caveat, stated rather than hidden:** extracting the frames of an
 animated GIF or WebP needs WebCodecs' `ImageDecoder`, which Chrome, Edge and
