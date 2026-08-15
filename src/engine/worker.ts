@@ -23,6 +23,7 @@ import {
   toGcode,
   centerlinePolylines,
   countDistinctColors,
+  optimizeSvg,
 } from 'vecline/core';
 import type {
   ConvertResult, ConvertSettings, Metrics, RasterImage,
@@ -102,6 +103,19 @@ function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
     svg = out.svg;
     shapes = out.shapes;
     colors = out.colors;
+  }
+
+  // Render-preserving minification: round coordinates, drop default attributes,
+  // strip the prolog. It cannot change what the SVG draws, so it runs by default
+  // rather than hiding behind a toggle — and because the metrics below are taken
+  // *after* it, the reported size and the downloaded size are the same number.
+  // Skipped for lossless output, where the whole promise is bit-exactness and
+  // coordinate rounding is exactly the thing that would break it.
+  if (settings.minify !== false && !lossless) {
+    const before = svg.length;
+    svg = optimizeSvg(svg);
+    const saved = before - svg.length;
+    if (saved > 0) notes.push(`Minified: ${Math.round((saved / before) * 100)}% smaller, same rendering.`);
   }
 
   const complexity = measureSvgComplexity(svg);

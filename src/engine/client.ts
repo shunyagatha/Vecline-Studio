@@ -13,6 +13,7 @@
  * Nothing here touches the network. Every byte stays in the tab.
  */
 
+import { decodeFallback, decodeTgaFallback } from 'vecline/core';
 import type {
   ConvertResult, ConvertSettings, ExportFormat, Metrics, RasterImage,
   WorkerRequest, WorkerResponse,
@@ -97,13 +98,49 @@ export class Engine {
   }
 }
 
-/** Decode any browser-supported image file into the engine's pixel contract. */
+/**
+ * Decode an image file into the engine's pixel contract.
+ *
+ * The browser handles what it can — PNG, JPEG, WebP, AVIF, GIF and, on most
+ * platforms, BMP. For the rest, vecline's own from-scratch decoders take over:
+ * **TGA, PNM (PBM/PGM/PPM) and ICO**, none of which any browser will decode as
+ * an ordinary image. This is the one category where the library strictly beats
+ * the platform, so the studio would be worse than the CLI without it — those
+ * files used to reach the generic "could not be read as an image".
+ *
+ * The browser is tried first rather than sniffing up front, because for the
+ * common formats its decoder is native, hardware-accelerated, and colour-managed
+ * in ways a pure-TypeScript path is not trying to match.
+ */
 export async function decodeFile(file: Blob): Promise<RasterImage> {
-  const bitmap = await createImageBitmap(file);
   try {
-    return drawToImageData(bitmap, bitmap.width, bitmap.height);
-  } finally {
-    bitmap.close();
+    const bitmap = await createImageBitmap(file);
+    try {
+      return drawToImageData(bitmap, bitmap.width, bitmap.height);
+    } finally {
+      bitmap.close();
+    }
+  } catch (browserFailure) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    // TGA carries no signature, so it is sniffed by structure separately.
+    const decoded = decodeFallback(bytes) ?? decodeTgaFallback(bytes);
+    if (!decoded) throw browserFailure;
+
+    // An ICO may wrap a PNG rather than a DIB. The decoder hands those bytes
+    // back instead of reimplementing PNG, so they go to the browser after all.
+    if (decoded.delegate) {
+      const bitmap = await createImageBitmap(
+        new Blob([decoded.delegate.bytes as BlobPart], { type: `image/${decoded.delegate.format}` }),
+      );
+      try {
+        return drawToImageData(bitmap, bitmap.width, bitmap.height);
+      } finally {
+        bitmap.close();
+      }
+    }
+    if (!decoded.image) throw browserFailure;
+    const { width, height, data } = decoded.image;
+    return { width, height, data };
   }
 }
 

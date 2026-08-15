@@ -32,6 +32,12 @@ export interface ConvertSettings {
   maxBytes?: number;
   /** Optional complexity budget, in anchor points. */
   maxNodes?: number;
+  /**
+   * Render-preserving minification of the SVG. Default on; ignored for lossless
+   * output, where rounding coordinates would forfeit the bit-exactness that is
+   * the entire point of that mode.
+   */
+  minify?: boolean;
 }
 
 export const DEFAULT_SETTINGS: ConvertSettings = {
