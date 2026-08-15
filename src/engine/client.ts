@@ -32,11 +32,19 @@ export class Engine {
   private worker: Worker;
   private seq = 0;
   private pending = new Map<number, { resolve: (v: never) => void; reject: (e: Error) => void }>();
+  /** Called as the worker passes each real stage of a conversion. */
+  onProgress: ((stage: string, pct: number) => void) | null = null;
 
   constructor(workerUrl: string | URL) {
     this.worker = new Worker(workerUrl, { type: 'module' });
     this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-      const res = e.data;
+      const res = e.data as WorkerResponse & { kind?: string; stage?: string; pct?: number };
+      // Progress is a running commentary on a request that has not finished, so
+      // it must not settle or clear the pending slot.
+      if (res.kind === 'progress') {
+        this.onProgress?.(res.stage ?? '', res.pct ?? 0);
+        return;
+      }
       const slot = this.pending.get(res.id);
       if (!slot) return;
       this.pending.delete(res.id);

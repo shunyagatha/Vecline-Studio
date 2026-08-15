@@ -176,9 +176,28 @@ function downscaleBox(image: RasterImage, width: number, height: number): Raster
   return { width, height, data: out };
 }
 
+/**
+ * Progress reporting.
+ *
+ * The stages below are the real ones the conversion passes through, and each is
+ * announced when it actually starts — no interpolated percentage and no timer
+ * pretending to advance. The percentages are the honest part: they say how far
+ * through the *stage list* we are, not how far through the work, because the
+ * tracer is a single synchronous call that cannot be subdivided from out here.
+ * A bar that lies about the remaining time is worse than one that names the step.
+ */
+let progressFor: number | null = null;
+function report(stage: string, pct: number): void {
+  if (progressFor === null) return;
+  (self as unknown as { postMessage(m: unknown): void })
+    .postMessage({ id: progressFor, ok: true, kind: 'progress', stage, pct });
+}
+
 function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
   const started = performance.now();
+  report('Preparing', 5);
   const { source, mode, notes } = prepare(image, settings);
+  report(mode === 'lossless' ? 'Building exact geometry' : mode === 'centerline' ? 'Finding centerlines' : 'Tracing contours', 25);
   let svg: string;
   let shapes = 0;
   let colors = 0;
@@ -210,6 +229,7 @@ function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
   // Skipped for lossless output, where the whole promise is bit-exactness and
   // coordinate rounding is exactly the thing that would break it.
   if (settings.minify !== false && !lossless) {
+    report('Minifying', 80);
     const before = svg.length;
     svg = optimizeSvg(svg);
     const saved = before - svg.length;
@@ -401,7 +421,9 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   let res: WorkerResponse;
   try {
     if (req.kind === 'convert') {
-      res = { id: req.id, ok: true, kind: 'convert', result: convert(req.image, req.settings) };
+      progressFor = req.id;
+      try { res = { id: req.id, ok: true, kind: 'convert', result: convert(req.image, req.settings) }; }
+      finally { progressFor = null; }
     } else if (req.kind === 'measure') {
       res = { id: req.id, ok: true, kind: 'measure', metrics: measure(req.a, req.b) };
     } else if (req.kind === 'export-many') {

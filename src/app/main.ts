@@ -308,10 +308,14 @@ async function runNow(): Promise<void> {
   // settings the user has already moved away from.
   const token = ++runSeq;
   setBusy(true);
+  setProgress('Decoding', 2);
+  // Late arrivals must not repaint the bar for a run the user has moved past.
+  engine.onProgress = (stage, pct) => { if (token === runSeq) setProgress(stage, pct); };
 
   try {
     const { result, metrics } = await engine.convertAndMeasure(src.image, settingsFromState());
     if (token !== runSeq) return;
+    setProgress('Scoring the result', 95);
     applyResult(result, metrics);
     clearError();
   } catch (err) {
@@ -349,6 +353,20 @@ function applyResult(result: ConvertResult, metrics: Metrics | null): void {
     outlineImg.hidden = false;
   } else {
     outlineImg.hidden = true;
+  }
+
+  // Embedded-bitmap output has no geometry, so the overlay has nothing to draw.
+  // Say that on the control rather than letting it toggle to an empty pane.
+  const outlineable = outlineUrl !== null;
+  const btn = byId<HTMLButtonElement>('outlineBtn');
+  btn.disabled = !outlineable;
+  btn.title = outlineable
+    ? 'Show the vector geometry'
+    : 'This result is an embedded bitmap — there is no geometry to outline';
+  if (!outlineable && state.outline) {
+    state.outline = false;
+    btn.setAttribute('aria-pressed', 'false');
+    viewport.dataset['outline'] = 'off';
   }
 
   paintMetrics();
@@ -390,6 +408,11 @@ function clearResult(): void {
 function toOutlineSvg(svg: string): string | null {
   const start = svg.indexOf('<svg');
   if (start < 0) return null;
+  // An embedded bitmap has no geometry to stroke, so an outline overlay would be
+  // a blank pane with no explanation — which reads as a broken toggle rather
+  // than as "there is nothing here to outline". Refusing lets the caller disable
+  // the control instead.
+  if (!/<(path|rect|circle|ellipse|polygon|polyline|line)\b/.test(svg)) return null;
   const open = svg.indexOf('>', start);
   if (open < 0) return null;
   const css =
@@ -981,8 +1004,20 @@ function layoutPixelGrid(): void {
 function setBusy(on: boolean): void {
   busy = on;
   app.dataset['busy'] = on ? '1' : '0';
+  if (!on) setProgress('', 0);
   paintMetrics();
   paintExports();
+}
+
+/**
+ * Paint the staged progress readout. Called from real milestones only — the
+ * worker announces a stage as it begins it, and nothing here interpolates
+ * between them, so the bar never claims progress that has not happened.
+ */
+function setProgress(stage: string, pct: number): void {
+  if (stage) byId('progStage').textContent = stage + '…';
+  byId<HTMLElement>('progFill').style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  byId('progPct').textContent = `${Math.round(pct)}%`;
 }
 
 /* ============================================================

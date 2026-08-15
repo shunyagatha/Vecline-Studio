@@ -529,6 +529,36 @@ button{font:inherit;color:inherit}
   pointer-events:none;
 }
 .app[data-busy="1"] .frame::before{opacity:1;animation:pass 1.05s linear infinite}
+
+.ghost:disabled{opacity:.4;cursor:not-allowed}
+.ghost:disabled:hover{background:transparent;color:var(--ink-2)}
+
+/* Staged progress. Shown only while working, and it names the step it is on
+   rather than animating a number, because the tracer is one synchronous call
+   and any smooth countdown would be invented. */
+.progress{
+  display:none;align-items:center;gap:10px;
+  padding:8px 12px;
+  background:var(--surface);border:1px solid var(--line);border-top:0;
+}
+.app[data-busy="1"] .progress{display:flex}
+.progress .track{
+  position:relative;flex:1 1 auto;height:4px;border-radius:99px;
+  background:var(--surface-2);overflow:hidden;
+}
+.progress .fill{
+  position:absolute;inset:0 auto 0 0;width:0%;
+  background:linear-gradient(90deg,var(--accent-text),var(--accent));
+  border-radius:99px;transition:width .25s ease;
+}
+.progress .stage{
+  font-family:var(--font-mono);font-size:12px;color:var(--ink-2);
+  white-space:nowrap;min-width:150px;
+}
+.progress .pct{
+  font-family:var(--font-mono);font-size:12px;color:var(--ink-3);
+  font-variant-numeric:tabular-nums;min-width:38px;text-align:right;
+}
 @keyframes pass{from{background-position:-40% 0}to{background-position:140% 0}}
 
 .viewport{
@@ -1172,6 +1202,13 @@ details.adv .body{margin-top:13px}
           </div>
         </div>
       </div>
+      </div>
+
+      <!-- Named-stage progress, visible only while a conversion is running. -->
+      <div class="progress" id="progress" role="status" aria-live="polite">
+        <span class="stage" id="progStage">Working&#8230;</span>
+        <span class="track"><i class="fill" id="progFill"></i></span>
+        <span class="pct" id="progPct">0%</span>
       </div>
 
       <!-- ---------- METRICS READOUT ---------- -->
