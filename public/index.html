@@ -739,6 +739,13 @@ img.art.px{image-rendering:pixelated;image-rendering:crisp-edges}
   border-radius:var(--r-m);padding:5px 7px;cursor:pointer;
 }
 .minisel:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cutsize{display:flex;gap:6px;flex:0 0 auto;align-items:center}
+.miniinput{
+  width:72px;font-family:var(--font-mono);font-size:12.5px;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--line-2);
+  border-radius:var(--r-m);padding:5px 7px;
+}
+.miniinput:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .outinfo{margin-left:auto;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2);white-space:nowrap}
 
 /* ---------- control rail ---------- */
@@ -1255,6 +1262,21 @@ details.adv .body{margin-top:13px}
             <option value="3:2">3:2 photo</option>
             <option value="16:9">16:9 wide</option>
           </select>
+        </div>
+        <div class="switchrow">
+          <div class="txt">
+            <div class="t">Cut size</div>
+            <div class="s">Finished width for DXF, so a laser cuts it at a known size</div>
+          </div>
+          <span class="cutsize">
+            <input id="physicalWidth" class="miniinput" type="number" min="1" max="10000" step="1"
+                   placeholder="auto" aria-label="Finished width for DXF export">
+            <select id="dxfUnits" class="minisel" aria-label="Unit for the finished width">
+              <option value="mm">mm</option>
+              <option value="cm">cm</option>
+              <option value="in">in</option>
+            </select>
+          </span>
         </div>
       </div>
 

@@ -44,6 +44,14 @@ export interface ConvertSettings {
    * saturation — a naive centre crop drops a subject that sits off to one side.
    */
   cropAspect?: [number, number];
+  /**
+   * Finished width of the part in {@link dxfUnits}. Given this, DXF export
+   * declares its own scale instead of emitting bare pixels — the difference
+   * between a drawing and something a laser can cut at a known size.
+   */
+  physicalWidth?: number;
+  /** Unit for {@link physicalWidth}. Default mm. */
+  dxfUnits?: 'mm' | 'cm' | 'in' | 'm';
 }
 
 export const DEFAULT_SETTINGS: ConvertSettings = {

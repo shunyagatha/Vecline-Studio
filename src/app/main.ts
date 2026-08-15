@@ -165,6 +165,9 @@ interface UiState {
   removeBackground: boolean;
   /** `"1:1"`, `"16:9"`, … or empty for the whole frame. */
   cropAspect: string;
+  /** Finished DXF width; 0 means 'no physical size declared'. */
+  physicalWidth: number;
+  dxfUnits: 'mm' | 'cm' | 'in';
   budgetOn: boolean;
   budgetKB: number;
   canvasView: CanvasView;
@@ -182,6 +185,8 @@ const state: UiState = {
   primitives: false,
   removeBackground: false,
   cropAspect: '',
+  physicalWidth: 0,
+  dxfUnits: 'mm',
   budgetOn: false,
   budgetKB: 24,
   canvasView: 'split',
@@ -264,6 +269,7 @@ function settingsFromState(): ConvertSettings {
     primitives: state.primitives,
     removeBackground: state.removeBackground,
     ...(parseAspect(state.cropAspect) ? { cropAspect: parseAspect(state.cropAspect) as [number, number] } : {}),
+    ...(state.physicalWidth > 0 ? { physicalWidth: state.physicalWidth, dxfUnits: state.dxfUnits } : {}),
   };
   // Carried for the readout, which compares the finished size against this cap
   // and reports whether it fits. It is deliberately *not* an instruction to the
@@ -1020,6 +1026,14 @@ detailRange.addEventListener('input', () => {
   setRangeFill(detailRange);
   scheduleRun();
 });
+
+const cutWidth = byId<HTMLInputElement>('physicalWidth');
+const cutUnits = byId<HTMLSelectElement>('dxfUnits');
+// Physical size changes only the DXF header and coordinate scale, never the
+// traced geometry — so it does not re-run the conversion, unlike every other
+// control in this rail.
+cutWidth.addEventListener('input', () => { state.physicalWidth = Number(cutWidth.value) || 0; });
+cutUnits.addEventListener('change', () => { state.dxfUnits = cutUnits.value as 'mm' | 'cm' | 'in'; });
 
 const cropSelect = byId<HTMLSelectElement>('cropAspect');
 cropSelect.addEventListener('change', () => {

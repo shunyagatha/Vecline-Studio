@@ -222,7 +222,16 @@ function exportAs(image: RasterImage, settings: ConvertSettings, format: ExportF
     return toGcode(polys, { mode: 'laser', height: source.height } as never);
   }
   const geometry = traceGeometry(source as never, traceOptions(settings) as never) as never;
-  if (format === 'dxf') return toDxf(geometry);
+  if (format === 'dxf') {
+    // A DXF that declares no units is a drawing; one that does is a part.
+    // Without `$INSUNITS`, LightBurn, LibreCAD and Fusion each apply a different
+    // default, so the same file cuts at three different sizes depending on what
+    // opened it — discovered after the cut, in material. The studio offered
+    // exactly that silent file until now, while the CLI could do better.
+    return toDxf(geometry, settings.physicalWidth
+      ? { units: settings.dxfUnits ?? 'mm', pixelsPerUnit: source.width / settings.physicalWidth }
+      : {});
+  }
   if (format === 'eps') return toEps(geometry, {} as never);
   return toPdf(geometry, {} as never);
 }
