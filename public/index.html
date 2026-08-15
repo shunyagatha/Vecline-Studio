@@ -354,6 +354,11 @@ button{font:inherit;color:inherit}
   border-radius:var(--r-m);
 }
 .tlink:hover{color:var(--ink);background:var(--surface-2)}
+.tlink.ver{
+  font-family:var(--font-mono);font-size:12px;color:var(--ink-3);
+  font-variant-numeric:tabular-nums;letter-spacing:-.01em;
+}
+.tlink.ver:hover{color:var(--accent-text)}
 .iconbtn{
   display:inline-flex;align-items:center;justify-content:center;gap:7px;
   height:36px;min-width:36px;padding:0 11px;
@@ -578,6 +583,15 @@ img.art.px{image-rendering:pixelated;image-rendering:crisp-edges}
 .tag.r{right:9px;background:var(--accent);color:var(--accent-on)}
 
 /* view modes */
+/* Centerline output is black strokes on transparency, which disappear against the
+   dark checkerboard. The strokes carry no colour meaning — they are line geometry
+   — so on a dark canvas we simply invert the output image to show white lines. The
+   downloaded file is untouched; this is a viewing aid only, and only for the one
+   mode whose output is monochrome. */
+:root[data-theme="dark"] .app[data-mode="centerline"] .pane-out .art{filter:invert(1)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .app[data-mode="centerline"] .pane-out .art{filter:invert(1)}
+}
 .viewport[data-view="split"] .pane-out{clip-path:inset(0 0 0 calc(var(--split) * 1%))}
 .viewport[data-view="out"] .pane-src{opacity:0}
 .viewport[data-view="src"] .pane-out{opacity:0}
@@ -964,6 +978,8 @@ details.adv .body{margin-top:13px}
 .app[data-state="empty"] .rule,
 .app[data-state="empty"] .viewport,
 .app[data-state="empty"] .stagehead{display:none}
+#removeImg{color:var(--ink-3)}
+#removeImg:hover{color:var(--danger, #d1006f);background:var(--surface-2)}
 .app[data-state="empty"] .frame{border-radius:var(--r-l)}
 .app[data-state="loaded"] .empty{display:none}
 .app[data-state="empty"] .rail{opacity:.55}
@@ -1029,6 +1045,7 @@ details.adv .body{margin-top:13px}
     <div class="topspace"></div>
 
     <nav class="toplinks" aria-label="Project links">
+      <a class="tlink ver" id="engineVer" href="https://github.com/shunyagatha/Vecline/releases" rel="noopener" title="Vecline engine version">&#8212;</a>
       <a class="tlink" href="./compare.html">Compare</a>
       <a class="tlink" href="https://github.com/shunyagatha/Vecline" rel="noopener">GitHub</a>
       <a class="tlink" href="https://www.npmjs.com/package/vecline" rel="noopener">npm</a>
@@ -1076,6 +1093,12 @@ details.adv .body{margin-top:13px}
           <span class="name" id="fileName">&#8212;</span>
           <span class="dim" id="fileDim">&#8212;</span>
         </div>
+        <button class="ghost" id="removeImg" type="button" title="Remove this image" aria-label="Remove this image">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12"></path>
+          </svg>
+          Remove
+        </button>
         <div class="headspace"></div>
 
         <div class="tabs" role="group" aria-label="Canvas view">

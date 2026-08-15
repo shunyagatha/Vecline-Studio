@@ -11,6 +11,7 @@
 import { Engine, decodeFile, decodeFileDetailed, decodeFrames, download, rasterizeSvg, encodeRasterImage, MIME, RASTER_MIME, EXPORT_EXT, type RasterTarget } from '../engine/client.js';
 import { isPdf, openPdf, type PdfPages } from '../engine/pdf.js';
 import { isOfficeDocument, probeBridge, convertViaBridge } from '../engine/bridge.js';
+import { VERSION as ENGINE_VERSION } from 'vecline/core';
 import type {
   ConvertResult, ConvertSettings, ExportFormat, MultiExportFormat, Metrics, Mode, Preset, RasterImage,
 } from '../engine/types.js';
@@ -400,6 +401,26 @@ function toOutlineSvg(svg: string): string | null {
 /* ============================================================
    Loading images
    ============================================================ */
+
+/**
+ * Return to the empty state — for when the wrong image went in. Releases the
+ * object URLs so a long session of dropping images does not leak blobs, drops
+ * any open PDF, and clears the result so no stale metrics linger under a blank
+ * canvas.
+ */
+function removeImage(): void {
+  if (source) URL.revokeObjectURL(source.url);
+  source = null;
+  closePdf();
+  clearResult();
+  clearError();
+  srcImg.hidden = true;
+  srcImg.removeAttribute('src');
+  byId('fileName').textContent = '—';
+  byId('fileDim').textContent = '—';
+  app.dataset['state'] = 'empty';
+  fileInput.value = '';
+}
 
 async function loadFile(file: File): Promise<void> {
   clearError();
@@ -867,6 +888,9 @@ function paintControls(): void {
 
   group(all('.chip[data-preset]'), (n) => n.dataset['preset'] === state.preset);
   group(all('.mode[data-mode]'), (n) => n.dataset['mode'] === state.mode);
+  // Exposed for the stylesheet: centerline output is monochrome strokes, so the
+  // dark theme flips them to white for viewing (see the invert rule in the CSS).
+  app.dataset['mode'] = state.mode;
 
   // Colour quantisation and the trace passes only exist on the tracing path;
   // leaving them live in lossless or centerline mode would imply an effect the
@@ -1206,6 +1230,11 @@ window.addEventListener('resize', () => layoutPixelGrid());
 /* ============================================================
    Wiring — input
    ============================================================ */
+
+// Show which engine build is running, linked to its release notes.
+byId('engineVer').textContent = `v${ENGINE_VERSION}`;
+
+byId('removeImg').addEventListener('click', removeImage);
 
 byId('browse').addEventListener('click', () => fileInput.click());
 
