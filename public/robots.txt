@@ -1,0 +1,6 @@
+# Everything here is public and static. Nothing is user data — the app has no
+# backend and stores nothing — so there is nothing to keep out of an index.
+User-agent: *
+Allow: /
+
+Sitemap: https://vecline.xyz/sitemap.xml
