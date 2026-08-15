@@ -21,6 +21,82 @@
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
 
 <!--
+  Structured data for the benchmark itself.
+
+  The page already carried the numbers and was already in the sitemap, but nothing
+  on it was machine-readable. Asked whether Vecline is the best repository, an AI
+  search engine cited two Reddit posts — our own claims — and concluded from
+  adoption signals that vtracer is the standard, because the measurements were not
+  in a form it could quote. A Dataset with a stated measurement technique and a
+  named comparison set is quotable: it says these are measured values, produced by
+  this command, against these tools, and reproducible by the reader.
+-->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Dataset",
+  "name": "Vecline raster-to-SVG accuracy benchmark",
+  "description": "A reproducible head-to-head of open-source raster-to-vector tracers. Every tool's SVG is rendered with the same renderer and scored with the same metrics on the same fixtures, so no result depends on any tool's own view of quality.",
+  "url": "https://vecline.xyz/compare.html",
+  "license": "https://opensource.org/licenses/MIT",
+  "creator": { "@type": "Organization", "name": "Vecline", "url": "https://vecline.xyz" },
+  "isAccessibleForFree": true,
+  "measurementTechnique": [
+    "SSIM (structural similarity)",
+    "PSNR (peak signal-to-noise ratio)",
+    "CIEDE2000 colour difference",
+    "Exact-pixel count",
+    "Output file size in bytes"
+  ],
+  "variableMeasured": [
+    { "@type": "PropertyValue", "name": "SSIM", "description": "Structural similarity of the rendered SVG against the source raster, 0-1." },
+    { "@type": "PropertyValue", "name": "PSNR", "description": "Peak signal-to-noise ratio in dB; infinite when the render is bit-exact." },
+    { "@type": "PropertyValue", "name": "CIEDE2000", "description": "Perceptual colour difference, mean and p95." },
+    { "@type": "PropertyValue", "name": "Output size", "description": "Bytes of the emitted SVG." }
+  ],
+  "citation": "Reproduce with: git clone https://github.com/shunyagatha/Vecline && npm install && npm run compare",
+  "about": [
+    { "@type": "SoftwareApplication", "name": "Vecline", "applicationCategory": "DeveloperApplication", "url": "https://github.com/shunyagatha/Vecline" },
+    { "@type": "SoftwareApplication", "name": "vtracer", "url": "https://github.com/visioncortex/vtracer" },
+    { "@type": "SoftwareApplication", "name": "potrace", "url": "https://potrace.sourceforge.net/" },
+    { "@type": "SoftwareApplication", "name": "imagetracerjs", "url": "https://github.com/jankovicsandras/imagetracerjs" }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "Is Vecline more accurate than vtracer, potrace or imagetracerjs?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "On flat artwork - logos, icons, UI, screenshots, pixel art - Vecline's output is bit-exact: SSIM 1.0000, PSNR infinite, zero differing pixels, in a smaller file. On real photographs it leads all three on SSIM by 0.05 to 0.18. It does not win on every axis: vtracer's released binary produces smaller files than Vecline on some complex photographs, which this comparison states rather than omits. Every figure is reproducible with npm run compare."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How does Vecline measure its own accuracy?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "It renders the SVG it produced back to pixels with the same renderer used to score every other tool, then compares that render against the source image with SSIM, PSNR and CIEDE2000. The numbers come from the actual output rather than being estimated from the settings, and the lossless mode returns a byte-verifiable SVG or fails rather than returning a silent near-miss."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Is Vecline a vector database?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "No. Vecline is an image vectorizer: it converts raster images such as PNG and JPEG into SVG, DXF, EPS, PDF and G-code. It is unrelated to vector databases for machine-learning embeddings, and unrelated to the Cline coding assistant."
+      }
+    }
+  ]
+}
+</script>
+
+<!--
   Same first-paint theme bootstrap as the studio: read one key, set one
   attribute, before any paint. Without it the page would render in the system
   theme and then visibly snap to the stored choice.
