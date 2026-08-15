@@ -79,12 +79,50 @@ export interface Metrics {
 export type WorkerRequest =
   | { id: number; kind: 'convert'; image: RasterImage; settings: ConvertSettings }
   | { id: number; kind: 'measure'; a: RasterImage; b: RasterImage }
-  | { id: number; kind: 'export'; image: RasterImage; settings: ConvertSettings; format: ExportFormat };
+  | { id: number; kind: 'export'; image: RasterImage; settings: ConvertSettings; format: ExportFormat }
+  | { id: number; kind: 'export-many'; image: RasterImage; settings: ConvertSettings; format: MultiExportFormat }
+  // `rendered` is the SVG rasterised back to pixels — the diff heatmap compares
+  // the source against what the output actually draws, not against itself.
+  | { id: number; kind: 'diff'; source: RasterImage; rendered: RasterImage };
 
-export type ExportFormat = 'svg' | 'dxf' | 'eps' | 'pdf' | 'gcode';
+/**
+ * Everything the studio can hand back as a file.
+ *
+ * The first five are the original vector/machine targets. The rest were already
+ * sitting in `vecline/core`, fully portable, and simply never wired up — an
+ * audit comparing the library surface against this app found them missing, not
+ * impossible. Each produces exactly one file except `separations`, which is a
+ * set by definition.
+ */
+export type ExportFormat =
+  | 'svg' | 'dxf' | 'eps' | 'pdf' | 'gcode'
+  /** A typed, prop-forwarding component for the named framework. */
+  | 'react' | 'vue' | 'svelte' | 'solid'
+  /** A multi-size .ico — the favicon a browser actually wants. */
+  | 'ico'
+  /** A tiny blur-up placeholder SVG (a zero-binary SQIP successor). */
+  | 'lqip'
+  /** A BlurHash string, for lazy-loading pipelines. */
+  | 'blurhash'
+  /** The source's perceptual palette as CSS custom properties. */
+  | 'palette-css'
+  /** A CIEDE2000 heatmap PNG showing *where* the conversion differs. */
+  | 'diff';
+
+/** Exports that return a set of files rather than one. */
+export type MultiExportFormat = 'separations';
+
+/** One file in a multi-file export. */
+export interface ExportedFile {
+  name: string;
+  data: string | Uint8Array;
+  mime: string;
+}
 
 export type WorkerResponse =
   | { id: number; ok: true; kind: 'convert'; result: ConvertResult }
   | { id: number; ok: true; kind: 'measure'; metrics: Metrics }
   | { id: number; ok: true; kind: 'export'; data: string | Uint8Array; format: ExportFormat }
+  | { id: number; ok: true; kind: 'export-many'; files: ExportedFile[] }
+  | { id: number; ok: true; kind: 'diff'; image: RasterImage; changedFraction: number; maxDeltaE: number }
   | { id: number; ok: false; error: string };

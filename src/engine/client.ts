@@ -15,7 +15,7 @@
 
 import { decodeFallback, decodeTgaFallback } from 'vecline/core';
 import type {
-  ConvertResult, ConvertSettings, ExportFormat, Metrics, RasterImage,
+  ConvertResult, ConvertSettings, ExportFormat, MultiExportFormat, ExportedFile, Metrics, RasterImage,
   WorkerRequest, WorkerResponse,
 } from './types.js';
 
@@ -65,10 +65,32 @@ export class Engine {
     return r.metrics;
   }
 
-  /** Produce a non-SVG vector export (DXF/EPS/PDF/G-code), client-side. */
+  /** Produce a single-file export, client-side. */
   async exportAs(image: RasterImage, settings: ConvertSettings, format: ExportFormat): Promise<string | Uint8Array> {
     const r = await this.send<{ data: string | Uint8Array }>({ kind: 'export', image, settings, format });
     return r.data;
+  }
+
+  /** Produce an export that is a set of files — currently colour separations. */
+  async exportMany(
+    image: RasterImage,
+    settings: ConvertSettings,
+    format: MultiExportFormat,
+  ): Promise<ExportedFile[]> {
+    const r = await this.send<{ files: ExportedFile[] }>({ kind: 'export-many', image, settings, format });
+    return r.files;
+  }
+
+  /**
+   * A perceptual difference heatmap between the source and what the output
+   * actually renders. The metrics say *how far off*; this says *where*.
+   */
+  async diff(source: RasterImage, rendered: RasterImage): Promise<{
+    image: RasterImage; changedFraction: number; maxDeltaE: number;
+  }> {
+    return this.send<{ image: RasterImage; changedFraction: number; maxDeltaE: number }>({
+      kind: 'diff', source, rendered,
+    });
   }
 
   /**
@@ -202,4 +224,23 @@ export const MIME: Record<ExportFormat | 'png', string> = {
   pdf: 'application/pdf',
   gcode: 'text/plain',
   png: 'image/png',
+  // Components and placeholders are source text; served as plain text so a
+  // browser shows them rather than trying to run anything.
+  react: 'text/plain',
+  vue: 'text/plain',
+  svelte: 'text/plain',
+  solid: 'text/plain',
+  ico: 'image/x-icon',
+  lqip: 'image/svg+xml',
+  blurhash: 'text/plain',
+  'palette-css': 'text/css',
+  diff: 'image/png',
+};
+
+/** File extension for each export. Not always the format name. */
+export const EXPORT_EXT: Record<ExportFormat, string> = {
+  svg: 'svg', dxf: 'dxf', eps: 'eps', pdf: 'pdf', gcode: 'gcode',
+  react: 'tsx', solid: 'tsx', vue: 'vue', svelte: 'svelte',
+  ico: 'ico', lqip: 'lqip.svg', blurhash: 'blurhash.txt',
+  'palette-css': 'palette.css', diff: 'diff.png',
 };

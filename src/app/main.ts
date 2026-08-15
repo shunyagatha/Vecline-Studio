@@ -8,9 +8,9 @@
  * never interpolates, estimates or remembers a stale value.
  */
 
-import { Engine, decodeFile, download, rasterizeSvg, MIME } from '../engine/client.js';
+import { Engine, decodeFile, download, rasterizeSvg, MIME, EXPORT_EXT } from '../engine/client.js';
 import type {
-  ConvertResult, ConvertSettings, ExportFormat, Metrics, Mode, Preset, RasterImage,
+  ConvertResult, ConvertSettings, ExportFormat, MultiExportFormat, Metrics, Mode, Preset, RasterImage,
 } from '../engine/types.js';
 
 /* ============================================================
@@ -1189,7 +1189,7 @@ moreMenu.addEventListener('click', (e: MouseEvent) => {
   const target = e.target instanceof Element ? e.target.closest<HTMLElement>('button[data-fmt]') : null;
   if (!target) return;
   closeMenu();
-  void exportAs((target.dataset['fmt'] ?? 'svg') as ExportFormat | 'png');
+  void exportAs((target.dataset['fmt'] ?? 'svg') as ExportFormat | MultiExportFormat | 'png');
 });
 
 document.addEventListener('click', (e: MouseEvent) => {
@@ -1205,7 +1205,15 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
 
 const PNG_SCALE = 2;
 
-async function exportAs(format: ExportFormat | 'png'): Promise<void> {
+/** Friendly names for the toast, where  reads badly. */
+const EXPORT_LABEL: Partial<Record<ExportFormat | MultiExportFormat | 'png', string>> = {
+  react: 'React component', vue: 'Vue component',
+  svelte: 'Svelte component', solid: 'Solid component',
+  ico: 'Favicon', lqip: 'LQIP placeholder', blurhash: 'BlurHash',
+  'palette-css': 'Palette CSS',
+};
+
+async function exportAs(format: ExportFormat | MultiExportFormat | 'png'): Promise<void> {
   const src = source;
   const r = lastResult;
   if (!src || !r) return;
@@ -1218,12 +1226,32 @@ async function exportAs(format: ExportFormat | 'png'): Promise<void> {
       const raster = await rasterizeSvg(r.svg, src.image.width * PNG_SCALE, src.image.height * PNG_SCALE);
       const blob = await canvasToBlob(rasterToCanvas(raster), 'image/png');
       download(new Uint8Array(await blob.arrayBuffer()), `${baseName()}@${PNG_SCALE}x.png`, MIME.png);
+    } else if (format === 'separations') {
+      // One file per ink. Browsers rate-limit rapid programmatic downloads, so
+      // they are spaced out — otherwise only the first two or three arrive and
+      // the user silently gets an incomplete set of plates.
+      const files = await engine.exportMany(src.image, settingsFromState(), 'separations');
+      if (files.length === 0) throw new Error('This image produced no separable colour layers.');
+      for (const [i, file] of files.entries()) {
+        download(file.data, `${baseName()}-${file.name}`, file.mime);
+        if (i < files.length - 1) await new Promise((r) => setTimeout(r, 350));
+      }
+      toast(`${files.length} colour separations saved`);
+      return;
+    } else if (format === 'diff') {
+      // Compare the source against what the SVG *actually renders*, not against
+      // the source again — the heatmap has to be able to disagree with us.
+      const rendered = await rasterizeSvg(r.svg, src.image.width, src.image.height);
+      const d = await engine.diff(src.image, rendered);
+      const blob = await canvasToBlob(rasterToCanvas(d.image), 'image/png');
+      download(new Uint8Array(await blob.arrayBuffer()), `${baseName()}.diff.png`, MIME.diff);
+      toast(`Heatmap saved — ${(d.changedFraction * 100).toFixed(2)}% of pixels differ`);
+      return;
     } else {
       const data = await engine.exportAs(src.image, settingsFromState(), format);
-      const ext = format === 'gcode' ? 'gcode' : format;
-      download(data, `${baseName()}.${ext}`, MIME[format]);
+      download(data, `${baseName()}.${EXPORT_EXT[format]}`, MIME[format]);
     }
-    toast(`${format.toUpperCase()} saved`);
+    toast(`${EXPORT_LABEL[format] ?? format.toUpperCase()} saved`);
   } catch (err) {
     showError(`That export failed. ${(err as Error).message}`);
   } finally {

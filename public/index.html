@@ -723,6 +723,16 @@ img.art.px{image-rendering:pixelated;image-rendering:crisp-edges}
 .menu button[disabled]{opacity:.42;cursor:not-allowed}
 .menu .fmt{font-family:var(--font-mono);font-size:13px;font-weight:700;width:62px;flex:0 0 auto;color:var(--ink)}
 .menu .desc{font-size:12.5px;color:var(--ink-2)}
+/* The menu now spans three purposes — machine formats, web assets, and checking
+   your work. Labelled groups keep it scannable; the list is long enough that an
+   undifferentiated column would just read as noise. */
+.menu{max-height:min(70vh,620px);overflow-y:auto}
+.menu .menusep{
+  font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--ink-2);opacity:.75;
+  padding:12px 10px 5px;margin-top:5px;border-top:1px solid var(--line-2);
+}
+.menu .fmt{width:auto;min-width:62px}
 .outinfo{margin-left:auto;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2);white-space:nowrap}
 
 /* ---------- control rail ---------- */
@@ -1128,6 +1138,20 @@ details.adv .body{margin-top:13px}
             <button type="button" role="menuitem" data-fmt="eps"><span class="fmt">EPS</span><span class="desc">Legacy print and prepress workflows</span></button>
             <button type="button" role="menuitem" data-fmt="pdf"><span class="fmt">PDF</span><span class="desc">One vector page, fonts outlined</span></button>
             <button type="button" role="menuitem" data-fmt="gcode"><span class="fmt">G-code</span><span class="desc">CNC, pen plotter and engraver paths</span></button>
+
+            <div class="menusep" role="separator" aria-hidden="true">For the web</div>
+            <button type="button" role="menuitem" data-fmt="react"><span class="fmt">React component</span><span class="desc">Typed .tsx, forwards props, uses currentColor</span></button>
+            <button type="button" role="menuitem" data-fmt="vue"><span class="fmt">Vue component</span><span class="desc">SFC that forwards every attribute</span></button>
+            <button type="button" role="menuitem" data-fmt="svelte"><span class="fmt">Svelte component</span><span class="desc">SFC with $$restProps forwarded</span></button>
+            <button type="button" role="menuitem" data-fmt="solid"><span class="fmt">Solid component</span><span class="desc">Typed .tsx for Solid&#8217;s JSX</span></button>
+            <button type="button" role="menuitem" data-fmt="ico"><span class="fmt">Favicon .ico</span><span class="desc">16, 32, 48 and 64&#215;64 in one file</span></button>
+            <button type="button" role="menuitem" data-fmt="lqip"><span class="fmt">LQIP placeholder</span><span class="desc">Tiny blur-up SVG for lazy loading</span></button>
+            <button type="button" role="menuitem" data-fmt="blurhash"><span class="fmt">BlurHash</span><span class="desc">The string, for your image pipeline</span></button>
+            <button type="button" role="menuitem" data-fmt="palette-css"><span class="fmt">Palette CSS</span><span class="desc">Dominant colours as custom properties</span></button>
+
+            <div class="menusep" role="separator" aria-hidden="true">For makers &amp; checking</div>
+            <button type="button" role="menuitem" data-fmt="separations"><span class="fmt">Colour separations</span><span class="desc">One SVG per colour &#8212; screen print, vinyl, DTF</span></button>
+            <button type="button" role="menuitem" data-fmt="diff"><span class="fmt">Difference heatmap</span><span class="desc">Where the output differs, by CIEDE2000</span></button>
           </div>
         </div>
 

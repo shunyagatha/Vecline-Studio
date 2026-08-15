@@ -27,20 +27,30 @@ the gap is worth stating plainly rather than letting anyone discover it.
 **In the app:** Bézier tracing and pixel-exact lossless conversion (with `auto`
 routing between them), centerline tracing, background removal, presets, live
 SSIM / PSNR / CIEDE2000 against the source, a bit-exact badge, a size-budget
-readout, split and side-by-side comparison, and export to SVG, PNG, DXF, EPS,
-PDF and G-code — all produced in the tab.
+readout, split and side-by-side comparison, and render-preserving minification
+on every SVG it produces.
+
+**Input formats.** Whatever the browser decodes — PNG, JPEG, WebP, AVIF, GIF,
+usually BMP — plus **TGA, PNM (PBM/PGM/PPM) and ICO**, which no browser reads
+and which vecline decodes itself. The browser is tried first, because for the
+common formats its decoder is native and colour-managed.
+
+**Exports, all generated in the tab:**
+
+| | |
+|---|---|
+| Vector & machine | SVG, PNG, DXF, EPS, PDF, G-code |
+| Web | React / Vue / Svelte / Solid component, favicon `.ico`, LQIP placeholder, BlurHash, palette as CSS custom properties |
+| Makers & checking | Colour separations (one SVG per ink — screen print, vinyl, DTF), CIEDE2000 difference heatmap |
 
 **Not in the app, because a browser tab genuinely cannot:** Office ⇄ PDF
 conversion, which drives your local LibreOffice through a child process. That
 is the only capability in the whole library with no browser path at all. Use
 the CLI or the MCP server for it.
 
-**Not in the app yet, though nothing stops it:** SVG minification, colour
-separations, smart crop, the CIEDE2000 diff heatmap, palette extraction to CSS
-variables, framework-component codegen, BlurHash/LQIP placeholders, favicon
-sets, sprite sheets, and decoding for TGA / PNM / ICO — formats no browser
-reads, where the library's from-scratch decoders would strictly beat the
-platform. All are pure and portable; they are simply not wired up.
+**Not in the app yet, though nothing stops it:** content-aware smart crop,
+sprite sheets, and animated GIF → animated SVG. All are pure and portable; they
+need input or view work rather than engine work.
 
 Two honest caveats about what *is* here:
 

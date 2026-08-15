@@ -24,10 +24,19 @@ import {
   centerlinePolylines,
   countDistinctColors,
   optimizeSvg,
+  toComponent,
+  traceSeparations,
+  extractPalette,
+  paletteToCssVars,
+  blurHash,
+  lqipSvg,
+  encodeIco,
+  encodeIcoDib,
+  diffImages,
 } from 'vecline/core';
 import type {
   ConvertResult, ConvertSettings, Metrics, RasterImage,
-  WorkerRequest, WorkerResponse, ExportFormat, Mode,
+  WorkerRequest, WorkerResponse, ExportFormat, ExportedFile, Mode,
 } from './types.js';
 
 /** Trace options derived from the UI's settings. */
@@ -163,7 +172,32 @@ function measure(a: RasterImage, b: RasterImage): Metrics {
  */
 function exportAs(image: RasterImage, settings: ConvertSettings, format: ExportFormat): string | Uint8Array {
   if (format === 'svg') return convert(image, settings).svg;
+
+  // Framework components start from the SVG the user is looking at, so what you
+  // paste into an app is the thing that was measured on screen.
+  if (format === 'react' || format === 'vue' || format === 'svelte' || format === 'solid') {
+    return toComponent(convert(image, settings).svg, {
+      framework: format,
+      name: 'Icon',
+      // `currentColor` is what makes an icon component actually reusable: the
+      // caller's CSS `color` drives it. Gradients and `none` are left alone.
+      currentColor: true,
+    });
+  }
+
   const { source } = prepare(image, settings);
+
+  // These read the *source* pixels, not the vector output: a placeholder or a
+  // palette describes the original image, and deriving them from a traced
+  // approximation would quietly answer a different question.
+  if (format === 'blurhash') return blurHash(source as never);
+  if (format === 'lqip') return lqipSvg(source as never, {} as never);
+  if (format === 'palette-css') {
+    const palette = extractPalette(source as never, 8) as never;
+    return paletteToCssVars(palette, '--brand');
+  }
+  if (format === 'ico') return faviconIco(source);
+
   if (format === 'gcode') {
     const polys = centerlinePolylines(source as never, {}) as never;
     return toGcode(polys, { mode: 'laser', height: source.height } as never);
@@ -174,6 +208,71 @@ function exportAs(image: RasterImage, settings: ConvertSettings, format: ExportF
   return toPdf(geometry, {} as never);
 }
 
+/**
+ * A multi-size .ico from one source image.
+ *
+ * The classic four sizes, each nearest-neighbour sampled from the source. A DIB
+ * payload rather than PNG, because 16×16 and 32×32 entries are the ones oldest
+ * software reads, and every ICO reader understands a DIB.
+ */
+function faviconIco(source: RasterImage): Uint8Array {
+  const sizes = [16, 32, 48, 64];
+  const entries = sizes.map((size) => {
+    const scaled = resizeNearest(source, size, size);
+    return {
+      width: size,
+      height: size,
+      payload: encodeIcoDib(scaled as never) as Uint8Array,
+      bitCount: 32,
+    };
+  });
+  return encodeIco(entries as never) as Uint8Array;
+}
+
+/**
+ * Nearest-neighbour resize.
+ *
+ * Deliberately not smoothed: favicons are tiny, and at 16×16 a box filter turns
+ * crisp edges into grey mush. There is no canvas in a worker without OffscreenCanvas
+ * anyway, and this keeps the path pure.
+ */
+function resizeNearest(image: RasterImage, width: number, height: number): RasterImage {
+  const out = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    const sy = Math.min(image.height - 1, Math.floor((y * image.height) / height));
+    for (let x = 0; x < width; x++) {
+      const sx = Math.min(image.width - 1, Math.floor((x * image.width) / width));
+      const si = (sy * image.width + sx) * 4;
+      const di = (y * width + x) * 4;
+      out[di] = image.data[si] as number;
+      out[di + 1] = image.data[si + 1] as number;
+      out[di + 2] = image.data[si + 2] as number;
+      out[di + 3] = image.data[si + 3] as number;
+    }
+  }
+  return { width, height, data: out };
+}
+
+/**
+ * Colour separations: one standalone SVG per colour.
+ *
+ * This is what screen-print, vinyl and DTF workflows need — a physical screen or
+ * cutter pass per colour — and it is the single capability whose absence locked
+ * an entire commercial audience out of the studio.
+ */
+function exportMany(image: RasterImage, settings: ConvertSettings): ExportedFile[] {
+  const { source } = prepare(image, settings);
+  const separations = traceSeparations(source as never, traceOptions(settings) as never) as
+    { color: string; svg: string }[];
+  return separations.map((sep, i) => ({
+    // The colour is in the filename because a plate is identified by its ink,
+    // and a folder of `layer-1.svg` tells a printer nothing.
+    name: `${String(i + 1).padStart(2, '0')}-${sep.color.replace(/[^a-z0-9]+/gi, '') || 'layer'}.svg`,
+    data: settings.minify !== false ? optimizeSvg(sep.svg) : sep.svg,
+    mime: 'image/svg+xml',
+  }));
+}
+
 self.onmessage = (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
   let res: WorkerResponse;
@@ -182,6 +281,15 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       res = { id: req.id, ok: true, kind: 'convert', result: convert(req.image, req.settings) };
     } else if (req.kind === 'measure') {
       res = { id: req.id, ok: true, kind: 'measure', metrics: measure(req.a, req.b) };
+    } else if (req.kind === 'export-many') {
+      res = { id: req.id, ok: true, kind: 'export-many', files: exportMany(req.image, req.settings) };
+    } else if (req.kind === 'diff') {
+      const d = diffImages(req.source as never, req.rendered as never, {} as never) as
+        { image: RasterImage; changedFraction: number; maxDeltaE: number };
+      res = {
+        id: req.id, ok: true, kind: 'diff',
+        image: d.image, changedFraction: d.changedFraction, maxDeltaE: d.maxDeltaE,
+      };
     } else {
       res = { id: req.id, ok: true, kind: 'export', data: exportAs(req.image, req.settings, req.format), format: req.format };
     }
