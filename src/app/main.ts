@@ -8,7 +8,8 @@
  * never interpolates, estimates or remembers a stale value.
  */
 
-import { Engine, decodeFile, decodeFrames, download, rasterizeSvg, MIME, EXPORT_EXT } from '../engine/client.js';
+import { Engine, decodeFile, decodeFileDetailed, decodeFrames, download, rasterizeSvg, MIME, EXPORT_EXT } from '../engine/client.js';
+import { isPdf, openPdf, type PdfPages } from '../engine/pdf.js';
 import type {
   ConvertResult, ConvertSettings, ExportFormat, MultiExportFormat, Metrics, Mode, Preset, RasterImage,
 } from '../engine/types.js';
@@ -398,11 +399,38 @@ async function loadFile(file: File): Promise<void> {
   setBusy(true);
 
   let image: RasterImage;
+  let pdfNote = '';
+  // Whether the *original file* can go straight into an `<img>`. When it cannot
+  // — PDF, TGA, PNM, ICO — the source pane is fed a canvas-rendered PNG of the
+  // decoded pixels instead, so the before/after comparison actually has a
+  // before. Without this the pane renders blank and nothing reports an error.
+  let browserDisplayable = true;
   try {
-    image = await decodeFile(file);
-  } catch {
+    const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+    if (isPdf(head)) {
+      // The PDF engine is a separate chunk fetched on demand, so this is the
+      // one load path that can be slow for a reason the user should be told
+      // about rather than left guessing at.
+      toast('Loading the PDF engine…');
+      closePdf();
+      pdf = await openPdf(new Uint8Array(await file.arrayBuffer()));
+      pdfPage = 0;
+      image = pdf.render(0, PDF_DPI);
+      browserDisplayable = false;
+      pdfNote = pdf.count > 1 ? ` · page 1 of ${pdf.count}` : ' · 1 page';
+    } else {
+      const decoded = await decodeFileDetailed(file);
+      image = decoded.image;
+      browserDisplayable = decoded.browserDisplayable;
+    }
+  } catch (err) {
     setBusy(false);
-    showError('That file could not be read as an image.');
+    closePdf();
+    showError(
+      /pdf/i.test((err as Error).message)
+        ? `That PDF could not be rendered. ${(err as Error).message}`
+        : 'That file could not be read as an image.',
+    );
     return;
   }
 
@@ -411,7 +439,13 @@ async function loadFile(file: File): Promise<void> {
     name: file.name || 'image',
     bytes: file.size,
     image,
-    url: URL.createObjectURL(file),
+    // A PDF, TGA or PNM cannot be the `src` of an `<img>`, so the pane gets a
+    // PNG of the decoded pixels instead. For everything the browser can render
+    // natively the original file is used directly — no re-encode, and no
+    // needless round-trip through a canvas for a large photograph.
+    url: browserDisplayable
+      ? URL.createObjectURL(file)
+      : URL.createObjectURL(await canvasToBlob(rasterToCanvas(image), 'image/png')),
     file,
   };
 
@@ -1229,6 +1263,23 @@ function parseAspect(value: string): [number, number] | null {
   const w = Number(m[1]);
   const h = Number(m[2]);
   return w > 0 && h > 0 ? [w, h] : null;
+}
+
+/**
+ * 150 DPI: the same default the CLI's `vecline doc --dpi` uses, so a page
+ * rendered here and a page rendered there are the same pixels. High enough that
+ * body text traces cleanly, low enough that an A4 page stays around 1240×1754
+ * rather than becoming a 20-megapixel buffer the tracer then has to chew.
+ */
+const PDF_DPI = 150;
+
+let pdf: PdfPages | null = null;
+let pdfPage = 0;
+
+function closePdf(): void {
+  pdf?.close();
+  pdf = null;
+  pdfPage = 0;
 }
 
 const PNG_SCALE = 2;

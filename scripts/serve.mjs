@@ -27,6 +27,11 @@ const TYPES = {
   '.png': 'image/png',
   '.ico': 'image/x-icon',
   '.map': 'application/json',
+  // Required, not cosmetic: `WebAssembly.instantiateStreaming` rejects any
+  // response that is not `application/wasm`, so serving the PDF engine as
+  // octet-stream silently drops it onto the slower ArrayBuffer path locally
+  // while working fine in production — the worst kind of dev/prod divergence.
+  '.wasm': 'application/wasm',
 };
 
 createServer(async (req, res) => {

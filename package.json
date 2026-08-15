@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "mupdf": "^1.28.0",
     "vecline": "^1.36.0"
   },
   "devDependencies": {

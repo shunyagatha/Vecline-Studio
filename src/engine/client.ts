@@ -152,10 +152,27 @@ export class Engine {
  * in ways a pure-TypeScript path is not trying to match.
  */
 export async function decodeFile(file: Blob): Promise<RasterImage> {
+  return (await decodeFileDetailed(file)).image;
+}
+
+/**
+ * As {@link decodeFile}, but also reports whether the *browser* could read the
+ * file.
+ *
+ * That distinction matters for more than bookkeeping. The source pane shows the
+ * original file in an `<img>`, which works only for formats the browser itself
+ * decodes — so for a TGA, a PNM, or a PDF the "before" half of the comparison
+ * silently rendered blank while the "after" half was fine. Nothing errored; the
+ * image simply had `naturalWidth === 0`. Knowing which path produced the pixels
+ * is what lets the caller substitute a preview it can actually draw.
+ */
+export async function decodeFileDetailed(
+  file: Blob,
+): Promise<{ image: RasterImage; browserDisplayable: boolean }> {
   try {
     const bitmap = await createImageBitmap(file);
     try {
-      return drawToImageData(bitmap, bitmap.width, bitmap.height);
+      return { image: drawToImageData(bitmap, bitmap.width, bitmap.height), browserDisplayable: true };
     } finally {
       bitmap.close();
     }
@@ -172,14 +189,17 @@ export async function decodeFile(file: Blob): Promise<RasterImage> {
         new Blob([decoded.delegate.bytes as BlobPart], { type: `image/${decoded.delegate.format}` }),
       );
       try {
-        return drawToImageData(bitmap, bitmap.width, bitmap.height);
+        // The payload is displayable, but the *container* the user handed us is
+        // not — an `<img src="…ico">` is not reliably rendered — so this still
+        // counts as needing a substituted preview.
+        return { image: drawToImageData(bitmap, bitmap.width, bitmap.height), browserDisplayable: false };
       } finally {
         bitmap.close();
       }
     }
     if (!decoded.image) throw browserFailure;
     const { width, height, data } = decoded.image;
-    return { width, height, data };
+    return { image: { width, height, data }, browserDisplayable: false };
   }
 }
 
