@@ -52,18 +52,34 @@ function resolveMode(image: RasterImage, mode: Mode): Exclude<Mode, 'auto'> {
   return distinct.count <= 24 ? 'lossless' : 'trace';
 }
 
-function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
-  const started = performance.now();
+/**
+ * Background removal and mode resolution, in one place.
+ *
+ * Both the preview and the downloads must start from *the same* pixels. When
+ * this logic lived only in `convert()`, every non-SVG export re-derived its
+ * geometry from the raw image — so turning on Remove Background changed what
+ * you saw and not what you downloaded. That divergence is invisible by
+ * construction: the export path never renders, so nothing on screen contradicts
+ * it. Sharing the preparation is what keeps the file honest.
+ */
+function prepare(image: RasterImage, settings: ConvertSettings): {
+  source: RasterImage;
+  mode: Exclude<Mode, 'auto'>;
+  notes: string[];
+} {
   const notes: string[] = [];
-
   let source = image;
   if (settings.removeBackground) {
     const r = removeBackground(source as never, {}) as { image: RasterImage };
     source = r.image;
     notes.push('Removed the detected background colour.');
   }
+  return { source, mode: resolveMode(source, settings.mode), notes };
+}
 
-  const mode = resolveMode(source, settings.mode);
+function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
+  const started = performance.now();
+  const { source, mode, notes } = prepare(image, settings);
   let svg: string;
   let shapes = 0;
   let colors = 0;
@@ -116,14 +132,29 @@ function measure(a: RasterImage, b: RasterImage): Metrics {
   };
 }
 
-/** Non-SVG vector exports, all produced client-side. */
+/**
+ * Non-SVG vector exports, all produced client-side.
+ *
+ * These run through `prepare()` for the same reason `convert()` does, so a
+ * download reflects the settings actually on screen.
+ *
+ * One honest asymmetry remains, and it is a property of the formats rather than
+ * a bug: DXF, EPS and PDF carry *outline geometry*, so they are always traced,
+ * even when the preview is in pixel-exact `lossless` mode. Lossless output is a
+ * grid of axis-aligned rectangles, which these formats could in principle carry
+ * exactly — but `traceGeometry` is the only geometry source available here, so a
+ * lossless preview and a DXF of the same image are not the same construction.
+ * G-code is likewise always centerline, because a toolpath *is* a medial axis;
+ * there is no other meaningful reading of "cut this".
+ */
 function exportAs(image: RasterImage, settings: ConvertSettings, format: ExportFormat): string | Uint8Array {
   if (format === 'svg') return convert(image, settings).svg;
+  const { source } = prepare(image, settings);
   if (format === 'gcode') {
-    const polys = centerlinePolylines(image as never, {}) as never;
-    return toGcode(polys, { mode: 'laser', height: image.height } as never);
+    const polys = centerlinePolylines(source as never, {}) as never;
+    return toGcode(polys, { mode: 'laser', height: source.height } as never);
   }
-  const geometry = traceGeometry(image as never, traceOptions(settings) as never) as never;
+  const geometry = traceGeometry(source as never, traceOptions(settings) as never) as never;
   if (format === 'dxf') return toDxf(geometry);
   if (format === 'eps') return toEps(geometry, {} as never);
   return toPdf(geometry, {} as never);

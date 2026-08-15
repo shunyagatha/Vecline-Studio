@@ -253,6 +253,13 @@ function settingsFromState(): ConvertSettings {
     primitives: state.primitives,
     removeBackground: state.removeBackground,
   };
+  // Carried for the readout, which compares the finished size against this cap
+  // and reports whether it fits. It is deliberately *not* an instruction to the
+  // worker: the library's budget solver — relax, re-render, re-measure, bisect
+  // back — lives in the Node entry point, not in `vecline/core`, so the studio
+  // cannot yet enforce a budget, only report against one. The UI says exactly
+  // that ("Fits" / "Over budget"), and must keep saying only that until the
+  // solver is ported.
   if (state.budgetOn) s.maxBytes = state.budgetKB * 1024;
   return s;
 }
