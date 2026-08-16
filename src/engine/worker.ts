@@ -51,6 +51,16 @@ function traceOptions(s: ConvertSettings): Record<string, unknown> {
     fitError: s.detail,
     gradients: s.gradients,
     primitives: s.primitives,
+    // The tracer announces its own stages as it passes them. Forwarding them is
+    // strictly better than the two hand-written milestones this file used to
+    // post, which were guesses about someone else's internals and went stale the
+    // moment the engine changed.
+    //
+    // Safe to attach here even though the export and separation paths share this
+    // builder: `report` is inert unless a conversion is in flight, so those
+    // paths pay nothing and say nothing.
+    onProgress: (stage: string, pct: number): void =>
+      report(stage, TRACE_LO + (Math.max(0, Math.min(100, pct)) * (TRACE_HI - TRACE_LO)) / 100),
   };
 }
 
@@ -179,25 +189,51 @@ function downscaleBox(image: RasterImage, width: number, height: number): Raster
 /**
  * Progress reporting.
  *
- * The stages below are the real ones the conversion passes through, and each is
- * announced when it actually starts — no interpolated percentage and no timer
- * pretending to advance. The percentages are the honest part: they say how far
- * through the *stage list* we are, not how far through the work, because the
- * tracer is a single synchronous call that cannot be subdivided from out here.
- * A bar that lies about the remaining time is worse than one that names the step.
+ * Every stage below is one the conversion really passes through, announced when
+ * it actually starts — no interpolated percentage and no timer pretending to
+ * advance. The percentages say how far through the *stage list* we are, not how
+ * far through the work. A bar that lies about the remaining time is worse than
+ * one that names the step.
+ *
+ * This file used to add that the tracer "cannot be subdivided from out here",
+ * which was true and is now not: vecline's `trace()` reports its own stages —
+ * quantising, region finding, contour tracing — and this file forwards them,
+ * scaled into the band below. Two guesses posted from outside became four facts
+ * reported from inside, and they cannot drift from what the engine does, because
+ * they *are* what it does.
+ *
+ * The claim still holds for the other two modes. `vectorizeExact` and
+ * `centerlineTrace` take no progress callback, so they are bracketed from out
+ * here and say nothing while they run. That silence is deliberate: inventing a
+ * crawl for them would be exactly the lie the paragraph above rules out.
+ *
+ * The band exists because tracing is one part of a longer job: preparation
+ * happens before it and minification and scoring after, so the engine's own
+ * 0–100 has to be compressed into the slice of the bar that tracing owns. The
+ * upper end stops short of the minify step deliberately — the engine reports
+ * nothing during curve fitting, and a bar that sat at 75 would be honest about
+ * that silence in a way that one creeping to 79 would not.
  */
+const TRACE_LO = 25;
+const TRACE_HI = 75;
+
 let progressFor: number | null = null;
 function report(stage: string, pct: number): void {
   if (progressFor === null) return;
-  (self as unknown as { postMessage(m: unknown): void })
-    .postMessage({ id: progressFor, ok: true, kind: 'progress', stage, pct });
+  const msg: WorkerResponse = { id: progressFor, ok: true, kind: 'progress', stage, pct };
+  (self as unknown as { postMessage(m: WorkerResponse): void }).postMessage(msg);
 }
 
 function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
   const started = performance.now();
   report('Preparing', 5);
   const { source, mode, notes } = prepare(image, settings);
-  report(mode === 'lossless' ? 'Building exact geometry' : mode === 'centerline' ? 'Finding centerlines' : 'Tracing contours', 25);
+  // Only the paths that stay silent get a label announced from out here. The
+  // trace path reports its own stages through `traceOptions`, and announcing
+  // "Tracing contours" before calling it would be this file guessing at a step
+  // the engine is about to name properly a millisecond later.
+  if (mode === 'lossless') report('Building exact geometry', TRACE_LO);
+  else if (mode === 'centerline') report('Finding centerlines', TRACE_LO);
   let svg: string;
   let shapes = 0;
   let colors = 0;
