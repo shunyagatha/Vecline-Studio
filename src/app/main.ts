@@ -218,6 +218,17 @@ let lastMetrics: Metrics | null = null;
 let outUrl: string | null = null;
 let outlineUrl: string | null = null;
 let busy = false;
+/**
+ * Whether the busy work in flight is an export.
+ *
+ * `busy` alone cannot answer the only question that matters before cancelling:
+ * is this work the user asked for, or work we started on their behalf? A
+ * preview conversion is speculative — a newer one supersedes it and nothing is
+ * lost. An export is a file the user clicked a button to get, and the controls
+ * stay live while it runs, so without this distinction a nudge of the colour
+ * slider mid-export would terminate the worker and lose the download.
+ */
+let exporting = false;
 let sweepPending = false;
 
 /* ============================================================
@@ -307,19 +318,54 @@ async function runNow(): Promise<void> {
   // before it paints. Without this the UI can settle on numbers that belong to
   // settings the user has already moved away from.
   const token = ++runSeq;
+
+  // Free the thread before asking for more work. Without this the previous run
+  // holds the worker to completion and this one queues behind it, so the bar
+  // sits at 2% for as long as a conversion the user has already moved past.
+  //
+  // An export is exempt: it is a file the user asked for, and terminating the
+  // worker under it would lose the download and report "That export failed" for
+  // something we did on purpose. It queues instead, which is the correct
+  // trade — the user's file wins over the preview's latency.
+  if (busy && !exporting) engine.cancelAll();
+
   setBusy(true);
   setProgress('Decoding', 2);
   // Late arrivals must not repaint the bar for a run the user has moved past.
   engine.onProgress = (stage, pct) => { if (token === runSeq) setProgress(stage, pct); };
 
   try {
-    const { result, metrics } = await engine.convertAndMeasure(src.image, settingsFromState());
+    const { result, metrics } = await engine.convertAndMeasure(
+      src.image,
+      settingsFromState(),
+      // Scoring happens *inside* convertAndMeasure — rasterise the SVG back,
+      // then compare. The label used to be set on the line after the await,
+      // which is to say after the scoring had already finished: the bar sat on
+      // the previous stage through the actual work and then flashed
+      // "Scoring the result" for a single frame on its way out.
+      () => { if (token === runSeq) setProgress('Scoring the result', 92); },
+    );
     if (token !== runSeq) return;
-    setProgress('Scoring the result', 95);
+    // Reaching 100 matters: a bar that stops short reads as an operation that
+    // gave up rather than one that finished, and `aria-valuenow` is the only
+    // completion signal a screen reader gets before the region is hidden.
+    //
+    // Nothing is awaited to make this paint. An earlier version yielded a
+    // `requestAnimationFrame` here so the 100% state survived the `setBusy`
+    // below — and that hung the app outright: rAF does not fire in a
+    // backgrounded tab, so switching away mid-conversion left the promise
+    // unsettled, the `finally` unreached and `busy` stuck at 1 forever, with no
+    // result and no error. Measured: `data-busy` went to 1 and never came back.
+    // The bar is `display:none` the instant busy clears, so the frame it bought
+    // was never visible anyway. Resetting on entry instead of on exit is what
+    // actually keeps the finished state coherent — see `setBusy`.
+    setProgress('Done', 100);
     applyResult(result, metrics);
     clearError();
   } catch (err) {
     if (token !== runSeq) return;
+    // A run we cancelled on purpose is not a failure to report to the user.
+    if ((err as Error).message === 'Superseded.') return;
     clearResult();
     showError(`That image could not be converted. ${(err as Error).message}`);
   } finally {
@@ -1004,7 +1050,18 @@ function layoutPixelGrid(): void {
 function setBusy(on: boolean): void {
   busy = on;
   app.dataset['busy'] = on ? '1' : '0';
-  if (!on) setProgress('', 0);
+  // Reset when work *starts*, not when it ends.
+  //
+  // Clearing on the way out contradicted the run that had just finished: the
+  // last state the bar was left in — and the last `aria-valuenow` a screen
+  // reader saw — was 0%, immediately after reaching 100%. Since the bar is
+  // hidden while idle, nobody benefits from that zero; the only thing it can do
+  // is make a completed conversion look abandoned.
+  //
+  // Callers that know their first step override this straight away in the same
+  // tick, so the neutral label shows only for work whose progress we genuinely
+  // cannot name yet, such as decoding a file.
+  if (on) setProgress('Working', 0);
   paintMetrics();
   paintExports();
 }
@@ -1015,9 +1072,13 @@ function setBusy(on: boolean): void {
  * between them, so the bar never claims progress that has not happened.
  */
 function setProgress(stage: string, pct: number): void {
+  const clamped = Math.max(0, Math.min(100, pct));
   if (stage) byId('progStage').textContent = stage + '…';
-  byId<HTMLElement>('progFill').style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  byId<HTMLElement>('progFill').style.width = `${clamped}%`;
   byId('progPct').textContent = `${Math.round(pct)}%`;
+  // Keep the assistive value in step with the painted one, or a screen reader
+  // reports a bar frozen at zero while the visible one advances.
+  byId('progTrack').setAttribute('aria-valuenow', String(Math.round(clamped)));
 }
 
 /* ============================================================
@@ -1463,7 +1524,14 @@ async function exportAs(format: ExportFormat | MultiExportFormat | ExtraExport):
   const src = source;
   const r = lastResult;
   if (!src || !r) return;
+  exporting = true;
   setBusy(true);
+  // Name the step. Without this an export inherits the neutral "Working… 0%"
+  // that `setBusy` starts every job with, which for the longest operations in
+  // the app — sprite and animate trace every frame — is the least informative
+  // thing the bar could say. The duration genuinely is unknown, so it names
+  // itself and sits there rather than pretending to advance.
+  setProgress(`Exporting ${String(format).replace(/^raster-/, '').toUpperCase()}`, 50);
   try {
     if (format === 'png') {
       // Rasterised from the SVG the user is looking at, through the same helper
@@ -1527,8 +1595,14 @@ async function exportAs(format: ExportFormat | MultiExportFormat | ExtraExport):
     }
     toast(`${EXPORT_LABEL[format] ?? format.toUpperCase()} saved`);
   } catch (err) {
+    // `exporting` is meant to keep a cancellation from ever reaching an export,
+    // so this branch should be unreachable. It is here because the cost of
+    // being wrong is a bare "That export failed. Superseded." — an error
+    // message for something we did deliberately, which is worse than silence.
+    if ((err as Error).message === 'Superseded.') return;
     showError(`That export failed. ${(err as Error).message}`);
   } finally {
+    exporting = false;
     setBusy(false);
   }
 }

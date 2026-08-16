@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "mupdf": "^1.28.0",
-    "vecline": "^1.41.1"
+    "vecline": "^1.47.0"
   },
   "devDependencies": {
     "esbuild": "^0.21.5",
