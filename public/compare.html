@@ -796,7 +796,7 @@ footer.site a:hover{color:var(--accent-text)}
     <h3 class="lbl" style="display:block;margin:0 0 8px">Synthetic fixtures</h3>
     <div class="tablewrap" role="region" aria-labelledby="synthCap" tabindex="0">
       <table class="m">
-        <caption id="synthCap" class="vh">Synthetic fixtures: size, PSNR, SSIM and mean Delta E 2000 for potrace, imagetracerjs and Vecline</caption>
+        <caption id="synthCap" class="vh">Synthetic fixtures: size, PSNR, SSIM and mean Delta E 2000 for potrace, imagetracerjs, vtracer and Vecline</caption>
         <thead>
           <tr>
             <th scope="col">Tool</th>
@@ -835,8 +835,13 @@ footer.site a:hover{color:var(--accent-text)}
           </tr>
           <tr>
             <th scope="row">imagetracerjs</th>
-            <td class="n b">1.6 KB<span class="vh"> (best)</span></td>
+            <td class="n">1.6 KB</td>
             <td class="n">26.56 dB</td><td class="n">0.9363</td><td class="n">0.662</td>
+          </tr>
+          <tr>
+            <th scope="row">vtracer</th>
+            <td class="n b">1.2 KB<span class="vh"> (best)</span></td>
+            <td class="n">27.88 dB</td><td class="n">0.9490</td><td class="n">0.582</td>
           </tr>
           <tr class="us">
             <th scope="row">Vecline<span class="bitexact">bit-exact</span></th>
@@ -860,11 +865,18 @@ footer.site a:hover{color:var(--accent-text)}
             <th scope="row">imagetracerjs</th>
             <td class="n">11.8 KB</td><td class="n">26.85 dB</td><td class="n">0.7143</td><td class="n">5.623</td>
           </tr>
+          <tr>
+            <th scope="row">vtracer</th>
+            <td class="n">42.7 KB</td>
+            <td class="n b">32.53 dB<span class="vh"> (best)</span></td>
+            <td class="n b">0.7979<span class="vh"> (best)</span></td>
+            <td class="n">3.049</td>
+          </tr>
           <tr class="us">
             <th scope="row">Vecline</th>
             <td class="n">19.0 KB</td>
-            <td class="n b">31.12 dB<span class="vh"> (best)</span></td>
-            <td class="n b">0.7750<span class="vh"> (best)</span></td>
+            <td class="n">31.12 dB</td>
+            <td class="n">0.7750</td>
             <td class="n b">2.940<span class="vh"> (best)</span></td>
           </tr>
           <tr class="nm">
@@ -883,7 +895,7 @@ footer.site a:hover{color:var(--accent-text)}
     <h3 class="lbl" style="display:block;margin:26px 0 8px">Real photographs &#183; the Kodak set at 480&nbsp;px</h3>
     <div class="tablewrap" role="region" aria-labelledby="kodakCap" tabindex="0">
       <table class="m">
-        <caption id="kodakCap" class="vh">Kodak photographs: size, PSNR, SSIM and mean Delta E 2000 for potrace posterize, imagetracerjs and Vecline</caption>
+        <caption id="kodakCap" class="vh">Kodak photographs: size, PSNR, SSIM and mean Delta E 2000 for potrace posterize, imagetracerjs, vtracer and Vecline</caption>
         <thead>
           <tr>
             <th scope="col">Tool</th>
@@ -903,6 +915,10 @@ footer.site a:hover{color:var(--accent-text)}
           <tr>
             <th scope="row">imagetracerjs</th>
             <td class="n">1620.5 KB</td><td class="n">25.47 dB</td><td class="n">0.7093</td><td class="n">5.957</td>
+          </tr>
+          <tr>
+            <th scope="row">vtracer</th>
+            <td class="n">987.0 KB</td><td class="n">25.88 dB</td><td class="n">0.7652</td><td class="n">4.743</td>
           </tr>
           <tr class="us">
             <th scope="row">Vecline</th>
@@ -926,6 +942,10 @@ footer.site a:hover{color:var(--accent-text)}
             <th scope="row">imagetracerjs</th>
             <td class="n">2010.2 KB</td><td class="n">24.58 dB</td><td class="n">0.7465</td><td class="n">4.900</td>
           </tr>
+          <tr>
+            <th scope="row">vtracer</th>
+            <td class="n">1032.0 KB</td><td class="n">24.25 dB</td><td class="n">0.7624</td><td class="n">5.665</td>
+          </tr>
           <tr class="us">
             <th scope="row">Vecline</th>
             <td class="n">1742.7 KB</td>
@@ -947,6 +967,10 @@ footer.site a:hover{color:var(--accent-text)}
           <tr>
             <th scope="row">imagetracerjs</th>
             <td class="n">300.8 KB</td><td class="n">25.81 dB</td><td class="n">0.7615</td><td class="n">6.317</td>
+          </tr>
+          <tr>
+            <th scope="row">vtracer</th>
+            <td class="n">344.0 KB</td><td class="n">23.17 dB</td><td class="n">0.7949</td><td class="n">7.728</td>
           </tr>
           <tr class="us">
             <th scope="row">Vecline</th>
@@ -971,9 +995,14 @@ footer.site a:hover{color:var(--accent-text)}
       printed alone.
     </p>
     <p class="foot">
-      The library&#8217;s own README carries a wider version of this table that also measures <b>vtracer</b>, the
-      strongest open-source colour tracer, which leads Vecline on the synthetic-photo fixture. It is linked, not
-      hidden: <a href="https://github.com/shunyagatha/Vecline#compared-with-other-vectorizers" rel="noopener">see the full comparison</a>.
+      <b>vtracer</b> is measured in the tables above, not in a footnote. It is the strongest open-source colour
+      tracer and it beats Vecline in two places: it takes both PSNR and SSIM on the synthetic-photo fixture, and it
+      writes smaller files than Vecline on the portrait and lighthouse photographs. Those rows are printed with the
+      same emphasis as the ones Vecline wins, because a comparison that only shows its author winning is not a
+      measurement. It is absent from the bilevel fixture alone, and deliberately: vtracer is a colour tracer, and
+      scoring it on black-and-white line art would be the same rigged fight as scoring potrace on colour.
+      The full table, including Vecline&#8217;s lossless rows, is in the
+      <a href="https://github.com/shunyagatha/Vecline#compared-with-other-vectorizers" rel="noopener">library&#8217;s README</a>.
     </p>
   </section>
 
