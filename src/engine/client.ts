@@ -35,9 +35,16 @@ export class Engine {
   /** Called as the worker passes each real stage of a conversion. */
   onProgress: ((stage: string, pct: number) => void) | null = null;
 
+  private readonly workerUrl: string | URL;
+
   constructor(workerUrl: string | URL) {
-    this.worker = new Worker(workerUrl, { type: 'module' });
-    this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+    this.workerUrl = workerUrl;
+    this.worker = this.spawn();
+  }
+
+  private spawn(): Worker {
+    const worker = new Worker(this.workerUrl, { type: 'module' });
+    worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
       const res = e.data as WorkerResponse & { kind?: string; stage?: string; pct?: number };
       // Progress is a running commentary on a request that has not finished, so
       // it must not settle or clear the pending slot.
@@ -51,6 +58,30 @@ export class Engine {
       if (res.ok) slot.resolve(res as never);
       else slot.reject(new Error(res.error));
     };
+    return worker;
+  }
+
+  /**
+   * Abandon whatever the worker is doing, immediately.
+   *
+   * A Worker handles `onmessage` serially and the conversion inside it is one
+   * synchronous call, so a superseded run cannot be asked to stop — it holds the
+   * thread until it finishes, and the next request queues behind it. Dragging
+   * the colour slider during a three-second photo trace therefore waited out
+   * that whole trace before starting the one the user actually wanted, with the
+   * bar sitting on "Decoding… 2%" the entire time.
+   *
+   * The run token already stops a stale result from painting, which is
+   * correctness. This is latency, and terminating is the only thing that frees
+   * the thread. The worker keeps no state between requests — every call carries
+   * its own image and settings — so a replacement costs one module
+   * instantiation and nothing else.
+   */
+  cancelAll(): void {
+    for (const slot of this.pending.values()) slot.reject(new Error('Superseded.'));
+    this.pending.clear();
+    this.worker.terminate();
+    this.worker = this.spawn();
   }
 
   private send<T>(req: RequestBody): Promise<T> {
@@ -126,8 +157,17 @@ export class Engine {
   async convertAndMeasure(
     image: RasterImage,
     settings: ConvertSettings,
+    /**
+     * Called once the conversion is done and scoring is about to begin.
+     *
+     * Scoring is not free — it rasterises the SVG back and compares every pixel
+     * — and it happens inside this method, so a caller cannot label it from
+     * outside without labelling it too late.
+     */
+    onScoring?: () => void,
   ): Promise<{ result: ConvertResult; metrics: Metrics | null }> {
     const result = await this.convert(image, settings);
+    onScoring?.();
     try {
       const rendered = await rasterizeSvg(result.svg, image.width, image.height);
       const metrics = await this.measure(image, rendered);

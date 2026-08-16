@@ -1204,10 +1204,19 @@ details.adv .body{margin-top:13px}
       </div>
       </div>
 
-      <!-- Named-stage progress, visible only while a conversion is running. -->
+      <!--
+        Named-stage progress, visible only while a conversion is running.
+
+        The track carries role="progressbar" and its aria-value attributes so a
+        screen reader can report the position, not merely that something is
+        happening: previously the container announced politely and the fill was
+        a bare <i>, so the stage text was the only thing conveyed.
+      -->
       <div class="progress" id="progress" role="status" aria-live="polite">
         <span class="stage" id="progStage">Working&#8230;</span>
-        <span class="track"><i class="fill" id="progFill"></i></span>
+        <span class="track" id="progTrack" role="progressbar"
+              aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+              aria-labelledby="progStage"><i class="fill" id="progFill"></i></span>
         <span class="pct" id="progPct">0%</span>
       </div>
 
