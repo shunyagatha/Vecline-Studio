@@ -1,0 +1,76 @@
+name: CI
+
+# Pull requests only, deliberately.
+#
+# deploy.yml already runs `npm ci`, typecheck and build on every push to main,
+# so adding `push: branches: [main]` here would duplicate all of it, double the
+# minutes and queue a second job behind every merge. The gap this closes is not
+# "the Studio has no CI" — it has had some since deploy.yml — it is that the
+# checks ran *after* merge, so a pull request showed no status at all and a
+# break was discovered on the way to production rather than before it.
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # One OS is enough. The engine repo matrixes three because its native
+        # dependencies ship per-platform prebuilds; the Studio's own output is a
+        # browser bundle with no native code, and the sharp/resvg binaries it
+        # inherits through vecline are install-time weight it never imports.
+        #
+        # Node 20 is the floor rather than 18: sharp declares engines >= 20.9 and
+        # arrives as a transitive optional dependency, so 18 produces EBADENGINE
+        # noise about a package that never runs in a browser.
+        node: ['20', '22']
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      # `npm run build` succeeding is weaker evidence than it looks. build.mjs
+      # filters its two entry points through existsSync and, if both are missing,
+      # only warns before continuing — so renaming src/app/main.ts produces a
+      # green build and a dist/ with no application in it, which deploy.yml would
+      # then happily publish to vecline.xyz.
+      #
+      # These four files are load-bearing, not a sample: sw.js precaches app.js
+      # and worker.js by name, index.html loads app.js as a module, and the wasm
+      # is what makes PDFs work at all.
+      - name: The build actually delivered something
+        run: |
+          for f in dist/app.js dist/worker.js dist/index.html dist/mupdf-wasm.wasm; do
+            test -s "$f" || { echo "::error::missing or empty: $f"; exit 1; }
+          done
+          # An unstamped placeholder means every visitor shares one cache key
+          # forever, which is the stale-deploy bug the service worker was
+          # rewritten to avoid.
+          if grep -q '__BUILD_ID__' dist/sw.js; then
+            echo "::error::dist/sw.js was not stamped with a build id"
+            exit 1
+          fi
+
+      # There are no tests to run: the repo has no test script and no runner, so
+      # a `npm test` step would fail on "Missing script" rather than tell anyone
+      # anything. Saying so here is better than a reader assuming the green tick
+      # covers behaviour. It covers compile errors, dependency resolution, and an
+      # empty build — not wrong output.
+      - name: What this job does not check
+        run: echo "No behavioural tests exist in this repo. This job proves it compiles, installs and produces artifacts."
