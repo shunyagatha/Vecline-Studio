@@ -45,11 +45,12 @@ export class Engine {
   private spawn(): Worker {
     const worker = new Worker(this.workerUrl, { type: 'module' });
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-      const res = e.data as WorkerResponse & { kind?: string; stage?: string; pct?: number };
+      const res = e.data;
       // Progress is a running commentary on a request that has not finished, so
-      // it must not settle or clear the pending slot.
-      if (res.kind === 'progress') {
-        this.onProgress?.(res.stage ?? '', res.pct ?? 0);
+      // it must not settle or clear the pending slot. Checked before the pending
+      // lookup for that reason.
+      if (res.ok && res.kind === 'progress') {
+        this.onProgress?.(res.stage, res.pct);
         return;
       }
       const slot = this.pending.get(res.id);

@@ -138,6 +138,20 @@ export interface ExportedFile {
 }
 
 export type WorkerResponse =
+  /**
+   * A running commentary on a request that has not finished.
+   *
+   * Unlike every other variant this one does **not** settle the request: many
+   * are sent for one `id`, and the matching result still follows. The client
+   * has to intercept it before the pending-promise lookup, and does.
+   *
+   * It is listed here because it was previously the only message the worker
+   * sent that no type described — posted through a cast that stepped around
+   * this union, and read back through a structural guess on the other side.
+   * Both ends agreed by coincidence rather than by contract, which is precisely
+   * the arrangement that lets a field get renamed on one side only.
+   */
+  | { id: number; ok: true; kind: 'progress'; stage: string; pct: number }
   | { id: number; ok: true; kind: 'convert'; result: ConvertResult }
   | { id: number; ok: true; kind: 'measure'; metrics: Metrics }
   | { id: number; ok: true; kind: 'export'; data: string | Uint8Array; format: ExportFormat }
