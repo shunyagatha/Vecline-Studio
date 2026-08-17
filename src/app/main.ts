@@ -531,7 +531,7 @@ async function loadFile(file: File): Promise<void> {
       closePdf();
       pdf = await openPdf(asPdf);
       pdfPage = 0;
-      image = pdf.render(0, PDF_DPI);
+      image = await pdf.render(0, PDF_DPI);
       browserDisplayable = false;
       pdfNote = pdf.count > 1 ? ` · page 1 of ${pdf.count}` : ' · 1 page';
     } else {
@@ -544,7 +544,7 @@ async function loadFile(file: File): Promise<void> {
         closePdf();
         pdf = await openPdf(new Uint8Array(await file.arrayBuffer()));
         pdfPage = 0;
-        image = pdf.render(0, PDF_DPI);
+        image = await pdf.render(0, PDF_DPI);
         browserDisplayable = false;
         pdfNote = pdf.count > 1 ? ` · page 1 of ${pdf.count}` : ' · 1 page';
       } else {

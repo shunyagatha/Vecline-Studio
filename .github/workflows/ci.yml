@@ -56,7 +56,7 @@ jobs:
       # is what makes PDFs work at all.
       - name: The build actually delivered something
         run: |
-          for f in dist/app.js dist/worker.js dist/index.html dist/mupdf-wasm.wasm; do
+          for f in dist/app.js dist/worker.js dist/pdf-worker.js dist/index.html dist/mupdf-wasm.wasm; do
             test -s "$f" || { echo "::error::missing or empty: $f"; exit 1; }
           done
           # An unstamped placeholder means every visitor shares one cache key
