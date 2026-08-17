@@ -40,6 +40,10 @@ async function run() {
   const entries = [
     { entryPoints: { app: 'src/app/main.ts' }, outdir: 'dist', splitting: true },
     { entryPoints: ['src/engine/worker.ts'], outfile: 'dist/worker.js' },
+    // The PDF engine is its own worker so that mupdf's 10 MB of wasm never
+    // enters the conversion worker, which every visitor loads. splitting stays
+    // on for it too, so the wasm remains a lazily-fetched chunk.
+    { entryPoints: { 'pdf-worker': 'src/engine/pdf-worker.ts' }, outdir: 'dist', splitting: true },
   ].filter((e) => {
     const first = Array.isArray(e.entryPoints) ? e.entryPoints[0] : Object.values(e.entryPoints)[0];
     return existsSync(first);
