@@ -9,7 +9,7 @@ canonical_url: https://vecline.xyz
 
 Every image-to-SVG converter I've ever used makes the same promise on its landing page: **100% accuracy**. None of them can define what that means, let alone measure it.
 
-So I built one that does. It's called [Vecline](https://vecline.xyz), it's free, MIT, and runs entirely in your browser. But the interesting part isn't the tracer. It's what happens when a tool measures its own output instead of asserting it's good — because the measurements kept disagreeing with the things I'd written in my own README, and I had to fix them in public.
+So I built one that does. It's called Vecline. The engine is [MIT on GitHub](https://github.com/shunyagatha/Vecline) — install it as a library or a CLI — and [Vecline Studio](https://vecline.xyz) runs that same engine entirely in your browser, free and signup-free, with nothing uploaded. But the interesting part isn't the tracer. It's what happens when a tool measures its own output instead of asserting it's good — because the measurements kept disagreeing with the things I'd written in my own README, and I had to fix them in public.
 
 ## The one idea: render it back and score it
 
