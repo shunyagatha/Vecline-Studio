@@ -10,6 +10,22 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # The engine ships separately, on its own release cadence, and the Studio
+  # bundles it at build time — so a new `vecline` on npm changes nothing here
+  # until something rebuilds, and nothing did: the site served engine 2.0.0
+  # while npm was on 2.1.1.
+  #
+  # Be precise about what that cost, because most of a release does not reach
+  # here. The Studio bundles `vecline/core`, the portable half. APNG animation,
+  # the decoder error messages and the heap watchdog are all node-only paths and
+  # were never in this bundle. What 2.1.x actually gives the browser is the
+  # tracer memory fix in trace.ts — real, but one item, not a backlog.
+  #
+  # This trigger exists so the gap cannot widen silently. Note that it only
+  # redeploys: `npm ci` installs what the lockfile pins, so the engine version
+  # changes when the lockfile does, not when this fires.
+  repository_dispatch:
+    types: [engine-released]
 
 # Pages needs these; nothing else in the workflow writes to the repo.
 permissions:
