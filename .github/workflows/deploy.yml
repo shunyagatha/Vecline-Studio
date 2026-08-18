@@ -21,9 +21,18 @@ on:
   # were never in this bundle. What 2.1.x actually gives the browser is the
   # tracer memory fix in trace.ts — real, but one item, not a backlog.
   #
-  # This trigger exists so the gap cannot widen silently. Note that it only
-  # redeploys: `npm ci` installs what the lockfile pins, so the engine version
-  # changes when the lockfile does, not when this fires.
+  # This trigger only redeploys, which is the part worth being blunt about:
+  # `npm ci` installs what the lockfile pins, so the engine version changes when
+  # the lockfile does, not when this fires. On its own it was never going to
+  # close the gap it was added for.
+  #
+  # `engine-update.yml` is what closes it — a scheduled job in this repository
+  # that compares the lockfile pin against npm and opens a PR to move it. That
+  # needs no cross-repo credential, where dispatching from the engine repository
+  # would have meant a fine-grained PAT in that repository's secrets holding
+  # write access to this one, with rotation and leak risk attached.
+  #
+  # Kept regardless: it is still a free way to force a rebuild of the current pin.
   repository_dispatch:
     types: [engine-released]
 
