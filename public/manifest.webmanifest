@@ -1,26 +1,69 @@
 {
   "name": "Vecline Studio",
   "short_name": "Vecline",
-  "description": "Turn images into clean, measured vector art — free, unlimited, and entirely in your browser. Nothing is uploaded.",
+  "description": "Turn images into clean, measured vector art \u2014 free, unlimited, and entirely in your browser. Nothing is uploaded.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
-  "categories": ["graphics", "productivity", "utilities"],
+  "categories": [
+    "graphics",
+    "productivity",
+    "utilities"
+  ],
   "icons": [
-    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "./icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "./icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "file_handlers": [
     {
       "action": "./",
       "accept": {
-        "image/png": [".png"],
-        "image/jpeg": [".jpg", ".jpeg"],
-        "image/webp": [".webp"],
-        "image/gif": [".gif"],
-        "image/bmp": [".bmp"]
+        "image/png": [
+          ".png"
+        ],
+        "image/jpeg": [
+          ".jpg",
+          ".jpeg"
+        ],
+        "image/webp": [
+          ".webp"
+        ],
+        "image/gif": [
+          ".gif"
+        ],
+        "image/bmp": [
+          ".bmp"
+        ]
       }
     }
   ]
