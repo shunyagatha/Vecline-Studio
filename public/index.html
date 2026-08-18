@@ -61,7 +61,14 @@
 <meta name="theme-color" content="#EFE9EF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#120E18" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="./manifest.webmanifest">
-<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<!-- /favicon.ico first, and root-absolute on purpose. Google's crawler falls
+     back to the site root when it indexes, and vecline.xyz served only
+     ./icon.svg — so search results showed the generic globe rather than the
+     mark. Modern browsers still prefer the SVG below; the .ico is for the
+     crawlers and the old clients that cannot read one. -->
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
 <!--
   The only script outside app.js, and it has to be here: app.js is a module and
