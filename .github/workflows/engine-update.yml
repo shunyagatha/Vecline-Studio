@@ -1,0 +1,110 @@
+# Keep the bundled engine current with what is published on npm.
+#
+# The Studio bundles `vecline` at build time, so a release on npm changes
+# nothing here until the lockfile moves. `repository_dispatch` cannot do that
+# job — `npm ci` installs exactly what the lockfile pins, so a dispatch only
+# redeploys the same engine that was already being served. That is how the site
+# came to run engine 2.0.0 while npm was on 2.1.1.
+#
+# So this bumps the lockfile and opens a PR, which is the thing that actually
+# needs to happen. Merging it triggers the existing deploy on push-to-main.
+#
+# Deliberately no cross-repo token. A `repository_dispatch` from the engine
+# repository would need a fine-grained PAT living in that repository's secrets,
+# with write access here, needing rotation and capable of leaking. Polling npm
+# from inside this repository needs none of that: `GITHUB_TOKEN` is scoped to
+# this repository, expires with the run, and the whole mechanism is visible in
+# this file rather than split across two repositories and a secret store.
+name: Engine update
+
+on:
+  schedule:
+    # Daily, a little after the hour — release automation tends to land on it.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# One update PR at a time; a newer run supersedes an older one.
+concurrency:
+  group: engine-update
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - id: versions
+        name: Compare the pinned engine against npm
+        run: |
+          # The lockfile is the source of truth for what actually ships: the
+          # `^2.1.1` range in package.json is not what `npm ci` installs.
+          pinned=$(node -p "require('./package-lock.json').packages['node_modules/vecline'].version")
+          latest=$(npm view vecline version)
+          echo "pinned=$pinned" >> "$GITHUB_OUTPUT"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          if [ "$pinned" = "$latest" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Engine is current at $pinned."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Engine $pinned is behind npm's $latest."
+          fi
+
+      - name: Bump the lockfile
+        if: steps.versions.outputs.changed == 'true'
+        run: npm install --save vecline@${{ steps.versions.outputs.latest }}
+
+      # Build before proposing, so a release that breaks the Studio produces a
+      # red PR to look at rather than a green one that breaks the site on merge.
+      - name: Typecheck and build against the new engine
+        if: steps.versions.outputs.changed == 'true'
+        run: |
+          npm run typecheck
+          npm run build
+
+      - name: Open the update PR
+        if: steps.versions.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PINNED: ${{ steps.versions.outputs.pinned }}
+          LATEST: ${{ steps.versions.outputs.latest }}
+        run: |
+          branch="engine/update-to-$LATEST"
+          # Nothing to do if a previous run already proposed this exact version.
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "$branch already exists; leaving it alone."
+            exit 0
+          fi
+          git config user.name shunyagatha
+          git config user.email gathafm.com@gmail.com
+          git checkout -b "$branch"
+          git add package.json package-lock.json
+          git commit -m "Bundle engine $LATEST
+
+          The Studio bundles the engine at build time, so npm publishing $LATEST
+          changed nothing here until this lockfile moved. Opened by the scheduled
+          engine-update workflow, which compares the lockfile pin against npm.
+
+          Typechecked and built against the new engine before proposing, so a
+          release that breaks the Studio shows up here rather than on the site."
+          git push -u origin "$branch"
+          gh pr create \
+            --base main --head "$branch" \
+            --title "Bundle engine $LATEST" \
+            --body "The Studio bundles \`vecline\` at build time, so publishing **$LATEST** to npm changed nothing on the site: \`npm ci\` installs what the lockfile pins, and it still said **$PINNED**.
+
+          This moves the pin. Merging triggers the existing deploy.
+
+          Typechecked and built against $LATEST before this PR was opened, so a release that breaks the Studio arrives as a red check here instead of a broken site.
+
+          Opened automatically by \`.github/workflows/engine-update.yml\`."
