@@ -51,6 +51,15 @@ function traceOptions(s: ConvertSettings): Record<string, unknown> {
     fitError: s.detail,
     gradients: s.gradients,
     primitives: s.primitives,
+    // Without this, Trace on photos emits zero curves: crack-following only
+    // produces axis-aligned unit steps, which can't deviate from a chord by
+    // less than 1/sqrt(5) ≈ 0.447px — below the Detail slider's whole range.
+    // mosaic smooths each shared region boundary first (junctions pinned, so
+    // neighbours still agree exactly), which is what lets the fitter engage.
+    mosaic: true,
+    // Degree-reduces cubics to quadratics wherever the fit error budget still
+    // holds — same curve, fewer numbers. Free: -25% bytes, no quality cost.
+    quadratics: true,
     // The tracer announces its own stages as it passes them. Forwarding them is
     // strictly better than the two hand-written milestones this file used to
     // post, which were guesses about someone else's internals and went stale the
