@@ -224,12 +224,57 @@ function report(stage: string, pct: number): void {
   (self as unknown as { postMessage(m: WorkerResponse): void }).postMessage(msg);
 }
 
-function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
+/**
+ * Wrap a raster's exact pixels in an `<svg><image>` container, as a genuinely
+ * lossless SVG when geometry cannot be.
+ *
+ * THIS IS THE FALLBACK `convert()` HAD, AND IT WAS WRONG. The first version of
+ * this file caught a refused `vectorizeExact` and fell back to `trace` — which
+ * stopped the crash but silently broke the promise the MODE label makes
+ * ("Pixel-lossless — Rasterises back bit-exact"): a photograph traced with
+ * curves is an approximation, never lossless, whatever the mode selector says.
+ * A user who explicitly asked for lossless and received an approximation with
+ * no visible difference from clicking Trace directly got nothing for the
+ * choice they made.
+ *
+ * The engine's own `vectorizeExact`/`runLossless` already has the right
+ * fallback chain for exactly this situation — pixel geometry, then an embedded
+ * bit-exact copy — but that second step (`vectorizeEmbed`) imports `sharp` and
+ * `node:crypto` and is Node-only; it is not part of `vecline/core` and cannot
+ * run in this worker. So this rebuilds the same idea with what a browser
+ * already has: `OffscreenCanvas` encodes PNG natively, and PNG is lossless by
+ * construction — round-tripping 8-bit RGBA through it changes nothing, which is
+ * exactly the property `RasterImage.data` already has (a `Uint8ClampedArray`,
+ * the same representation `ImageData` wants, so no conversion is needed).
+ *
+ * `FileReaderSync` is deliberately used over a hand-rolled base64 chunker: it
+ * exists only in dedicated workers, is synchronous there, and is one call
+ * instead of a loop that has to get large-buffer chunking right by hand.
+ */
+async function embedAsPng(image: RasterImage): Promise<{ svg: string; bytes: number }> {
+  const canvas = new OffscreenCanvas(image.width, image.height);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('This browser has no 2D canvas context in a worker.');
+  // `RasterImage.data` is typed as the general `Uint8ClampedArray<ArrayBufferLike>`,
+  // which admits a SharedArrayBuffer backing that `ImageData`'s constructor
+  // narrowly refuses. It is never actually one here — decoded pixels are always
+  // a plain heap buffer — so this is a type assertion, not a runtime coercion.
+  ctx.putImageData(new ImageData(image.data as Uint8ClampedArray<ArrayBuffer>, image.width, image.height), 0, 0);
+  const blob = await canvas.convertToBlob({ type: 'image/png' });
+  const dataUri = new FileReaderSync().readAsDataURL(blob);
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${image.width}" height="${image.height}" ` +
+    `viewBox="0 0 ${image.width} ${image.height}">` +
+    `<image width="${image.width}" height="${image.height}" href="${dataUri}"/></svg>`;
+  return { svg, bytes: blob.size };
+}
+
+async function convert(image: RasterImage, settings: ConvertSettings): Promise<ConvertResult> {
   const started = performance.now();
   report('Preparing', 5);
   const prepared = prepare(image, settings);
   const { source, notes } = prepared;
-  // Mutable: LOSSLESS FALLS BACK TO TRACE, below, and the field this becomes is
+  // Mutable: LOSSLESS CAN FALL BACK, below, and the field this becomes is
   // documented as "which strategy actually ran" — so when it falls back, this is
   // the variable that has to change, or the result would claim a mode it did not
   // use and the SVG mode badge would lie.
@@ -255,12 +300,6 @@ function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
     // bypasses that measurement on purpose, so a person can force lossless on
     // an image `auto` would have declined — which is a reasonable thing to
     // want to try, and a raw thrown error is not a reasonable way to answer it.
-    //
-    // So: try it, and if the encoder refuses, fall back to Trace and SAY SO,
-    // rather than surfacing a message written for a CLI ("--mode embed",
-    // "--max-rects-per-pixel") to someone looking at a browser tab with no
-    // command line in it. The engine's error message is fine on its own
-    // terms; it is simply answering a question this UI never asked.
     try {
       const out = vectorizeExact(source as never) as { svg: string; shapes: number };
       svg = out.svg;
@@ -268,19 +307,56 @@ function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
       lossless = true;
       notes.push('Pixel-exact geometry: this rasterises back to the source with zero differing pixels.');
     } catch (err) {
-      mode = 'trace';
-      const out = trace(source as never, traceOptions(settings) as never) as
-        { svg: string; shapes: number; colors: number };
-      svg = out.svg;
-      shapes = out.shapes;
-      colors = out.colors;
-      notes.push(
-        'Pixel-lossless could not compress this image: it has too much detail for a ' +
-        'grid of solid-colour rectangles, the same way a photograph does not reduce ' +
-        `well to a handful of flat regions. (${(err as Error).message.replace(/^Pixel-exact vectorisation (?:would need|has stopped compressing)[^:]*:\s*/, '').replace(/\s*Use --mode[^.]*\.?$/, '')}) ` +
-        'Converted with Trace instead — switch PRESET or MODE below for a result ' +
-        'tuned to this image rather than one chosen to avoid the error.',
-      );
+      // `vectorizeExact` throws two different shapes depending on which budget
+      // is exceeded — src/vectorize/pixel.ts's hard cap ("would need more than
+      // N rectangles.", no colon, lowercase "use") and its soft compression
+      // budget ("has stopped compressing...: N rectangles for M pixels (X%,
+      // over the Y% budget). Finishing would...", colon, capital "Use"). The
+      // first version of this extraction only matched the second shape, so the
+      // hard-cap message — reached on the very largest images, not the common
+      // case — passed through with `--mode embed`/`--max-rects-per-pixel`
+      // intact. Matched case-insensitively and independent of punctuation now,
+      // so neither shape can leak a CLI flag into this browser tab.
+      const reason = (err as Error).message
+        .replace(/^Pixel-exact vectorisation (?:would need|has stopped compressing)[^:]*:\s*/, '')
+        .replace(/^Pixel-exact vectorisation would need more than ([\d,]+) rectangles\.\s*/, 'more than $1 rectangles ')
+        .replace(/This input is photographic;\s*/, '')
+        .replace(/\s*[Uu]se --mode[\s\S]*$/, '')
+        .replace(/\s*Finishing would emit[\s\S]*$/, '')
+        .replace(/\.$/, '')
+        .trim();
+      try {
+        // STILL LOSSLESS. A grid of rectangles is not the only bit-exact
+        // representation — the pixels themselves, PNG-encoded and wrapped in an
+        // `<image>`, are equally exact and never refuse regardless of how much
+        // detail the source has. This is what "Pixel-lossless" actually promises;
+        // rectangle geometry was one way to keep that promise, not the promise.
+        const out = await embedAsPng(source);
+        svg = out.svg;
+        shapes = 1;
+        lossless = true;
+        notes.push(
+          `Pixel-exact rectangles would need ${reason} — too many for editable geometry. ` +
+          'Embedded the exact pixels instead: still bit-exact, and it always works, at the ' +
+          'cost of a raster wrapped in SVG rather than shapes you can edit.',
+        );
+      } catch (embedErr) {
+        // Only reached if this browser lacks OffscreenCanvas PNG encoding
+        // entirely — everything Baseline-widely-available supports it. Trace is
+        // the last resort, not the first, and says plainly that it is not what
+        // was asked for.
+        mode = 'trace';
+        const out = trace(source as never, traceOptions(settings) as never) as
+          { svg: string; shapes: number; colors: number };
+        svg = out.svg;
+        shapes = out.shapes;
+        colors = out.colors;
+        notes.push(
+          `Pixel-exact rectangles would need ${reason}, and this browser could not encode a ` +
+          `lossless embed either (${(embedErr as Error).message}). Converted with Trace instead ` +
+          '— this result is an approximation, not the exact copy Pixel-lossless promises.',
+        );
+      }
     }
   } else if (mode === 'centerline') {
     const out = centerlineTrace(source as never, {}) as { svg: string; paths: number };
@@ -352,13 +428,15 @@ function measure(a: RasterImage, b: RasterImage): Metrics {
  * G-code is likewise always centerline, because a toolpath *is* a medial axis;
  * there is no other meaningful reading of "cut this".
  */
-function exportAs(image: RasterImage, settings: ConvertSettings, format: ExportFormat): string | Uint8Array {
-  if (format === 'svg') return convert(image, settings).svg;
+async function exportAs(
+  image: RasterImage, settings: ConvertSettings, format: ExportFormat,
+): Promise<string | Uint8Array> {
+  if (format === 'svg') return (await convert(image, settings)).svg;
 
   // Framework components start from the SVG the user is looking at, so what you
   // paste into an app is the thing that was measured on screen.
   if (format === 'react' || format === 'vue' || format === 'svelte' || format === 'solid') {
-    return toComponent(convert(image, settings).svg, {
+    return toComponent((await convert(image, settings)).svg, {
       framework: format,
       name: 'Icon',
       // `currentColor` is what makes an icon component actually reusable: the
@@ -471,8 +549,10 @@ function exportMany(image: RasterImage, settings: ConvertSettings): ExportedFile
  * that rasters get traced on the way in — every other sprite tool starts from
  * SVGs you already have.
  */
-function sprite(items: { id: string; image: RasterImage }[], settings: ConvertSettings): string {
-  const traced = items.map(({ id, image }) => ({ id, svg: convert(image, settings).svg }));
+async function sprite(items: { id: string; image: RasterImage }[], settings: ConvertSettings): Promise<string> {
+  const traced = await Promise.all(
+    items.map(async ({ id, image }) => ({ id, svg: (await convert(image, settings)).svg })),
+  );
   return svgSprite(traced as never, {} as never) as string;
 }
 
@@ -484,27 +564,37 @@ function sprite(items: { id: string; image: RasterImage }[], settings: ConvertSe
  * between frames, and frame 0 doubles as the still poster a non-animating
  * renderer or `prefers-reduced-motion` falls back to.
  */
-function animate(frames: RasterImage[], settings: ConvertSettings, fps: number): string {
-  const svgs = frames.map((frame) => convert(frame, settings).svg);
+async function animate(frames: RasterImage[], settings: ConvertSettings, fps: number): Promise<string> {
+  const svgs = await Promise.all(frames.map(async (frame) => (await convert(frame, settings)).svg));
   return framesToAnimatedSvg(svgs, { fps } as never) as string;
 }
 
-self.onmessage = (e: MessageEvent<WorkerRequest>) => {
+// `convert()` became async the moment it grew a genuinely-lossless embed
+// fallback (OffscreenCanvas PNG encoding, awaited) — see embedAsPng above — so
+// this dispatcher and everything that calls convert() (exportAs, sprite,
+// animate) had to follow. The dispatch itself stays a single try/catch around
+// one big awaited expression per branch, so a rejection from deep inside
+// still lands in the same `catch` a thrown error always did; nothing about the
+// error-reporting contract changes for the callers on the other side of
+// `postMessage`.
+self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const req = e.data;
   let res: WorkerResponse;
   try {
     if (req.kind === 'convert') {
       progressFor = req.id;
-      try { res = { id: req.id, ok: true, kind: 'convert', result: convert(req.image, req.settings) }; }
+      try { res = { id: req.id, ok: true, kind: 'convert', result: await convert(req.image, req.settings) }; }
       finally { progressFor = null; }
     } else if (req.kind === 'measure') {
       res = { id: req.id, ok: true, kind: 'measure', metrics: measure(req.a, req.b) };
     } else if (req.kind === 'export-many') {
       res = { id: req.id, ok: true, kind: 'export-many', files: exportMany(req.image, req.settings) };
     } else if (req.kind === 'sprite') {
-      res = { id: req.id, ok: true, kind: 'sprite', svg: sprite(req.items, req.settings), count: req.items.length };
+      const svg = await sprite(req.items, req.settings);
+      res = { id: req.id, ok: true, kind: 'sprite', svg, count: req.items.length };
     } else if (req.kind === 'animate') {
-      res = { id: req.id, ok: true, kind: 'animate', svg: animate(req.frames, req.settings, req.fps), frames: req.frames.length };
+      const svg = await animate(req.frames, req.settings, req.fps);
+      res = { id: req.id, ok: true, kind: 'animate', svg, frames: req.frames.length };
     } else if (req.kind === 'diff') {
       const d = diffImages(req.source as never, req.rendered as never, {} as never) as
         { image: RasterImage; changedFraction: number; maxDeltaE: number };
@@ -513,7 +603,8 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
         image: d.image, changedFraction: d.changedFraction, maxDeltaE: d.maxDeltaE,
       };
     } else {
-      res = { id: req.id, ok: true, kind: 'export', data: exportAs(req.image, req.settings, req.format), format: req.format };
+      const data = await exportAs(req.image, req.settings, req.format);
+      res = { id: req.id, ok: true, kind: 'export', data, format: req.format };
     }
   } catch (err) {
     res = { id: req.id, ok: false, error: (err as Error).message };
