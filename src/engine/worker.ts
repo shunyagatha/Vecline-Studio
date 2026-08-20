@@ -227,7 +227,13 @@ function report(stage: string, pct: number): void {
 function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
   const started = performance.now();
   report('Preparing', 5);
-  const { source, mode, notes } = prepare(image, settings);
+  const prepared = prepare(image, settings);
+  const { source, notes } = prepared;
+  // Mutable: LOSSLESS FALLS BACK TO TRACE, below, and the field this becomes is
+  // documented as "which strategy actually ran" — so when it falls back, this is
+  // the variable that has to change, or the result would claim a mode it did not
+  // use and the SVG mode badge would lie.
+  let mode: Exclude<Mode, 'auto'> = prepared.mode;
   // Only the paths that stay silent get a label announced from out here. The
   // trace path reports its own stages through `traceOptions`, and announcing
   // "Tracing contours" before calling it would be this file guessing at a step
@@ -240,11 +246,42 @@ function convert(image: RasterImage, settings: ConvertSettings): ConvertResult {
   let lossless = false;
 
   if (mode === 'lossless') {
-    const out = vectorizeExact(source as never) as { svg: string; shapes: number };
-    svg = out.svg;
-    shapes = out.shapes;
-    lossless = true;
-    notes.push('Pixel-exact geometry: this rasterises back to the source with zero differing pixels.');
+    // Pixel-exact geometry is one shape per axis-aligned run of identical
+    // pixels, so it degrades the same way for every caller: a photograph has
+    // thousands of runs and the encoder refuses rather than emit a multi-
+    // megabyte SVG with one <path> per colour. The engine's own `auto` mode
+    // never lets a user hit that wall — it measures the image first and only
+    // offers lossless when it will actually compress. This UI's MODE selector
+    // bypasses that measurement on purpose, so a person can force lossless on
+    // an image `auto` would have declined — which is a reasonable thing to
+    // want to try, and a raw thrown error is not a reasonable way to answer it.
+    //
+    // So: try it, and if the encoder refuses, fall back to Trace and SAY SO,
+    // rather than surfacing a message written for a CLI ("--mode embed",
+    // "--max-rects-per-pixel") to someone looking at a browser tab with no
+    // command line in it. The engine's error message is fine on its own
+    // terms; it is simply answering a question this UI never asked.
+    try {
+      const out = vectorizeExact(source as never) as { svg: string; shapes: number };
+      svg = out.svg;
+      shapes = out.shapes;
+      lossless = true;
+      notes.push('Pixel-exact geometry: this rasterises back to the source with zero differing pixels.');
+    } catch (err) {
+      mode = 'trace';
+      const out = trace(source as never, traceOptions(settings) as never) as
+        { svg: string; shapes: number; colors: number };
+      svg = out.svg;
+      shapes = out.shapes;
+      colors = out.colors;
+      notes.push(
+        'Pixel-lossless could not compress this image: it has too much detail for a ' +
+        'grid of solid-colour rectangles, the same way a photograph does not reduce ' +
+        `well to a handful of flat regions. (${(err as Error).message.replace(/^Pixel-exact vectorisation (?:would need|has stopped compressing)[^:]*:\s*/, '').replace(/\s*Use --mode[^.]*\.?$/, '')}) ` +
+        'Converted with Trace instead — switch PRESET or MODE below for a result ' +
+        'tuned to this image rather than one chosen to avoid the error.',
+      );
+    }
   } else if (mode === 'centerline') {
     const out = centerlineTrace(source as never, {}) as { svg: string; paths: number };
     svg = out.svg;

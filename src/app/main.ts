@@ -862,7 +862,15 @@ function paintSwatches(): void {
 function paintBudget(): void {
   const cost = byId('cost');
   const budgetGrp = byId('budgetGrp');
-  const isLossless = state.mode === 'lossless';
+  // The DELIVERED result decides this, not the requested mode. Pixel-lossless
+  // can fall back to Trace mid-conversion (an image with too much detail for
+  // bit-exact rectangles) — see convert() in worker.ts — and when it does, the
+  // budget panel must stop claiming the on-screen SVG is already the smallest
+  // exact form: it is a traced approximation, and a size cap on it is exactly
+  // as meaningful as on any other trace. Falls back to the requested mode only
+  // when nothing has been converted yet, so a fresh Pixel-lossless selection
+  // still greys the panel out before the first conversion resolves.
+  const isLossless = lastResult ? lastResult.lossless : state.mode === 'lossless';
   budgetGrp.classList.toggle('dim', isLossless);
 
   if (isLossless) {
