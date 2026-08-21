@@ -60,6 +60,13 @@ function traceOptions(s: ConvertSettings): Record<string, unknown> {
     // Degree-reduces cubics to quadratics wherever the fit error budget still
     // holds — same curve, fewer numbers. Free: -25% bytes, no quality cost.
     quadratics: true,
+    // `viewBox` alone is enough for this app's own `<img>` preview (sized by
+    // CSS) and for the download — without this, a directly-opened result
+    // file renders at its literal source pixel size, routinely bigger than
+    // the screen showing it, and needs zooming out just to see. Requires an
+    // engine release carrying this option; inert (silently ignored) against
+    // the currently-installed version until then.
+    emitDimensions: false,
     // The tracer announces its own stages as it passes them. Forwarding them is
     // strictly better than the two hand-written milestones this file used to
     // post, which were guesses about someone else's internals and went stale the
@@ -271,9 +278,11 @@ async function embedAsPng(image: RasterImage): Promise<{ svg: string; bytes: num
   ctx.putImageData(new ImageData(image.data as Uint8ClampedArray<ArrayBuffer>, image.width, image.height), 0, 0);
   const blob = await canvas.convertToBlob({ type: 'image/png' });
   const dataUri = new FileReaderSync().readAsDataURL(blob);
+  // No `width`/`height` on the root — `viewBox` alone lets a directly-opened
+  // file scale to fit its viewer instead of forcing its literal pixel size,
+  // which for a real photo is routinely bigger than the screen showing it.
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${image.width}" height="${image.height}" ` +
-    `viewBox="0 0 ${image.width} ${image.height}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${image.width} ${image.height}">` +
     `<image width="${image.width}" height="${image.height}" href="${dataUri}"/></svg>`;
   return { svg, bytes: blob.size };
 }
@@ -300,9 +309,9 @@ function embedOriginal(
   const dataUri = new FileReaderSync().readAsDataURL(
     new Blob([file.bytes as Uint8Array<ArrayBuffer>], { type: file.type }),
   );
+  // No `width`/`height` on the root — see the identical note in `embedAsPng`.
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${image.width}" height="${image.height}" ` +
-    `viewBox="0 0 ${image.width} ${image.height}">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${image.width} ${image.height}">` +
     `<image width="${image.width}" height="${image.height}" href="${dataUri}"/></svg>`;
   return { svg, bytes: file.bytes.length };
 }
@@ -339,7 +348,11 @@ async function convert(image: RasterImage, settings: ConvertSettings): Promise<C
     // an image `auto` would have declined — which is a reasonable thing to
     // want to try, and a raw thrown error is not a reasonable way to answer it.
     try {
-      const out = vectorizeExact(source as never) as { svg: string; shapes: number };
+      // `emitDimensions: false` — same reason as `traceOptions`: requires an
+      // engine release carrying the option, inert against the
+      // currently-installed version until then.
+      const out = vectorizeExact(source as never, { emitDimensions: false } as never) as
+        { svg: string; shapes: number };
       svg = out.svg;
       shapes = out.shapes;
       lossless = true;
