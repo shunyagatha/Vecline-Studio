@@ -52,6 +52,21 @@ export interface ConvertSettings {
   physicalWidth?: number;
   /** Unit for {@link physicalWidth}. Default mm. */
   dxfUnits?: 'mm' | 'cm' | 'in' | 'm';
+  /**
+   * The uploaded file's own bytes, present only when they are known to decode
+   * to exactly the pixels being converted — a plain raster the browser
+   * rendered natively, not a PDF/TGA/PNM/ICO re-render or an Office-bridge
+   * PDF, and not a crop or background removal, either of which changes the
+   * pixels without changing these bytes.
+   *
+   * Lets Pixel-lossless mode's embed fallback (worker.ts's `embedAsPng`)
+   * reuse the original encoding instead of re-encoding as PNG. PNG is
+   * lossless, so a photograph a lossy format made small can balloon on
+   * re-encode: measured, a 4.8MB JPEG went to a 58.1MB embedded SVG. Reusing
+   * these bytes keeps the same bit-exact pixels — same file, same decode —
+   * at close to the original size instead.
+   */
+  originalFile?: { bytes: Uint8Array; type: string };
 }
 
 export const DEFAULT_SETTINGS: ConvertSettings = {

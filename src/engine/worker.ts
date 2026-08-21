@@ -278,6 +278,35 @@ async function embedAsPng(image: RasterImage): Promise<{ svg: string; bytes: num
   return { svg, bytes: blob.size };
 }
 
+/**
+ * Wrap the ORIGINAL uploaded bytes in an `<image>`, instead of re-encoding the
+ * decoded pixels as a fresh PNG.
+ *
+ * Same reason to exist as {@link embedAsPng}, same bit-exactness (`compareImages`
+ * scores the same decoded pixels either way) — but PNG is lossless, and a lossy
+ * source format's whole point is throwing away information a lossless re-encode
+ * cannot get back. Measured: a 4.8MB JPEG went to 58.1MB re-encoded as PNG and
+ * base64'd; reusing its own bytes keeps it close to 4.8MB. Caller (see
+ * `ConvertSettings.originalFile`) is responsible for only offering bytes that
+ * are known to decode to exactly `image`'s pixels.
+ */
+function embedOriginal(
+  file: { bytes: Uint8Array; type: string },
+  image: RasterImage,
+): { svg: string; bytes: number } {
+  // Same narrow assertion `embedAsPng` makes for `ImageData`: `bytes` admits the
+  // general `ArrayBufferLike` (which includes `SharedArrayBuffer`), but it is
+  // never actually one here — `main.ts` builds it fresh from `Blob.arrayBuffer()`.
+  const dataUri = new FileReaderSync().readAsDataURL(
+    new Blob([file.bytes as Uint8Array<ArrayBuffer>], { type: file.type }),
+  );
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${image.width}" height="${image.height}" ` +
+    `viewBox="0 0 ${image.width} ${image.height}">` +
+    `<image width="${image.width}" height="${image.height}" href="${dataUri}"/></svg>`;
+  return { svg, bytes: file.bytes.length };
+}
+
 async function convert(image: RasterImage, settings: ConvertSettings): Promise<ConvertResult> {
   const started = performance.now();
   report('Preparing', 5);
@@ -336,24 +365,34 @@ async function convert(image: RasterImage, settings: ConvertSettings): Promise<C
         .trim();
       try {
         // STILL LOSSLESS. A grid of rectangles is not the only bit-exact
-        // representation — the pixels themselves, PNG-encoded and wrapped in an
-        // `<image>`, are equally exact and never refuse regardless of how much
-        // detail the source has. This is what "Pixel-lossless" actually promises;
+        // representation — the pixels themselves, wrapped in an `<image>`, are
+        // equally exact and never refuse regardless of how much detail the
+        // source has. This is what "Pixel-lossless" actually promises;
         // rectangle geometry was one way to keep that promise, not the promise.
-        const out = await embedAsPng(source);
+        //
+        // Reuse the ORIGINAL bytes when they are known to decode to exactly
+        // these pixels (see `ConvertSettings.originalFile`) rather than
+        // re-encoding as PNG: PNG is lossless, so a photo a lossy format made
+        // small can balloon on re-encode — measured, 4.8MB to 58.1MB.
+        const out = settings.originalFile
+          ? embedOriginal(settings.originalFile, source)
+          : await embedAsPng(source);
         svg = out.svg;
         shapes = 1;
         lossless = true;
-        notes.push(
-          `Pixel-exact rectangles would need ${reason} — too many for editable geometry. ` +
-          'Embedded the exact pixels instead: still bit-exact, and it always works, at the ' +
-          'cost of a raster wrapped in SVG rather than shapes you can edit.',
-        );
+        const embedNote = settings.originalFile
+          ? 'Embedded the original file instead: still bit-exact, and it keeps the size the ' +
+            "source format already earned, at the cost of a raster wrapped in SVG rather than " +
+            'shapes you can edit.'
+          : 'Embedded the exact pixels instead: still bit-exact, and it always works, at the ' +
+            'cost of a raster wrapped in SVG rather than shapes you can edit.';
+        notes.push(`Pixel-exact rectangles would need ${reason} — too many for editable geometry. ${embedNote}`);
       } catch (embedErr) {
-        // Only reached if this browser lacks OffscreenCanvas PNG encoding
-        // entirely — everything Baseline-widely-available supports it. Trace is
-        // the last resort, not the first, and says plainly that it is not what
-        // was asked for.
+        // Only reached if this browser lacks `FileReaderSync` (both embed paths
+        // need it) or, for the PNG path specifically, OffscreenCanvas encoding —
+        // everything Baseline-widely-available supports both. Trace is the last
+        // resort, not the first, and says plainly that it is not what was asked
+        // for.
         mode = 'trace';
         const out = trace(source as never, traceOptions(settings) as never) as
           { svg: string; shapes: number; colors: number };

@@ -210,6 +210,20 @@ interface Source {
    * again, per frame, through a different API.
    */
   file: Blob;
+  /**
+   * `file`, read once as bytes so a debounced re-conversion (every slider tick)
+   * does not re-read the same Blob repeatedly. Passed through as
+   * `ConvertSettings.originalFile` when safe — see `browserDisplayable` below.
+   */
+  fileBytes: Uint8Array;
+  /**
+   * Whether `file`'s own bytes decode to exactly `image`'s pixels — true for a
+   * plain raster the browser rendered natively, false for a PDF/TGA/PNM/ICO
+   * (rendered through a different path) or an Office-bridge PDF. Lets the
+   * lossless-embed fallback reuse `file` directly instead of re-encoding
+   * `image` as PNG — see `originalFile` on `ConvertSettings`.
+   */
+  browserDisplayable: boolean;
 }
 
 let source: Source | null = null;
@@ -283,6 +297,13 @@ function settingsFromState(): ConvertSettings {
     ...(parseAspect(state.cropAspect) ? { cropAspect: parseAspect(state.cropAspect) as [number, number] } : {}),
     ...(state.physicalWidth > 0 ? { physicalWidth: state.physicalWidth, dxfUnits: state.dxfUnits } : {}),
   };
+  // Only when the bytes provably decode to the pixels being converted: a crop
+  // or background removal changes the pixels without changing these bytes, and
+  // a non-browser-displayable source (PDF/TGA/PNM/ICO, or an Office bridge
+  // output) reached `image` through a different decode path entirely.
+  if (source?.browserDisplayable && !s.cropAspect && !state.removeBackground) {
+    s.originalFile = { bytes: source.fileBytes, type: source.file.type };
+  }
   // Carried for the readout, which compares the finished size against this cap
   // and reports whether it fits. It is deliberately *not* an instruction to the
   // worker: the library's budget solver — relax, re-render, re-measure, bisect
@@ -577,6 +598,8 @@ async function loadFile(file: File): Promise<void> {
       ? URL.createObjectURL(file)
       : URL.createObjectURL(await canvasToBlob(rasterToCanvas(image), 'image/png')),
     file,
+    fileBytes: new Uint8Array(await file.arrayBuffer()),
+    browserDisplayable,
   };
 
   srcImg.src = source.url;
