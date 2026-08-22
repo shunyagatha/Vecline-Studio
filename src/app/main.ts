@@ -1179,13 +1179,14 @@ for (const chip of all('.chip[data-preset], .mode[data-preset]')) {
 
 for (const mode of all('.mode[data-mode]')) {
   mode.addEventListener('click', () => {
-    const next = (mode.dataset['mode'] ?? 'auto') as Mode;
-    // Picking plain Trace while Clean is still the active preset would leave
-    // Trace unable to show pressed (the exception above suppresses it exactly
-    // because Clean is `mode: 'trace'` too) — drop the Clean designation, the
-    // same way choosing any other mode already leaves a stale preset behind.
-    if (next === 'trace' && state.preset === 'clean') state.preset = 'auto';
-    state.mode = next;
+    // Clean's own highlight checks only `state.preset === 'clean'` (see the
+    // group() call above), not `state.mode` — so picking ANY other mode card
+    // while Clean was active has to clear it here, or Clean stays lit next to
+    // whatever was just picked instead of switching off. Scoped to leaving
+    // Clean specifically: Logo/Poster/etc. aren't mode cards, so their own
+    // leftover preset when a mode is picked directly is unrelated to this.
+    if (state.preset === 'clean') state.preset = 'auto';
+    state.mode = (mode.dataset['mode'] ?? 'auto') as Mode;
     paintControls();
     paintBudget();
     scheduleRun();
