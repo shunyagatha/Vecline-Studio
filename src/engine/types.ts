@@ -16,7 +16,7 @@ export interface RasterImage {
 export type Mode = 'auto' | 'lossless' | 'trace' | 'centerline';
 
 export type Preset =
-  | 'auto' | 'logo' | 'lineart' | 'poster' | 'photo' | 'detailed' | 'pixelart';
+  | 'auto' | 'clean' | 'logo' | 'lineart' | 'poster' | 'photo' | 'detailed' | 'pixelart';
 
 /** Everything the control rail can set. */
 export interface ConvertSettings {
