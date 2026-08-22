@@ -134,6 +134,13 @@ const PRESETS: Record<Preset, PresetDef> = {
   // colours/detail as Auto on purpose — the difference is `mode: 'trace'`
   // forcing the engine's `PRESETS.clean` tuning (see `traceOptions` in
   // worker.ts) instead of leaving the lossless-or-trace choice to the source.
+  //
+  // Still a `Preset`, not a `Mode` — the engine has no "clean" strategy, only
+  // `trace` tuned this way — but the control that sets it lives in the Mode
+  // grid, not the Preset row: clean-or-lossless is the choice people actually
+  // make, and it read as a lesser option lost among Logo/Poster/Photo/Detailed.
+  // See the dedicated wiring below `applyPreset`, and the `.mode[data-preset]`
+  // button in index.html.
   clean:    { name: 'Clean',     mode: 'trace',      colors: 16, detail: 62,  gradients: false, primitives: false },
   logo:     { name: 'Logo',      mode: 'trace',      colors: 8,  detail: 55,  gradients: false, primitives: true },
   lineart:  { name: 'Line-art',  mode: 'centerline', colors: 2,  detail: 70,  gradients: false, primitives: false },
@@ -993,8 +1000,14 @@ function paintControls(): void {
     sw.setAttribute('aria-checked', on ? 'true' : 'false');
   }
 
-  group(all('.chip[data-preset]'), (n) => n.dataset['preset'] === state.preset);
-  group(all('.mode[data-mode]'), (n) => n.dataset['mode'] === state.mode);
+  group(all('.chip[data-preset], .mode[data-preset]'), (n) => n.dataset['preset'] === state.preset);
+  // Clean is `mode: 'trace'` underneath (see `PRESETS.clean`), so without this
+  // exception picking Clean would light up Trace too — two pressed buttons in
+  // one grid, for what reads as a single choice.
+  group(
+    all('.mode[data-mode]'),
+    (n) => n.dataset['mode'] === state.mode && !(state.preset === 'clean' && n.dataset['mode'] === 'trace'),
+  );
   // Exposed for the stylesheet: centerline output is monochrome strokes, so the
   // dark theme flips them to white for viewing (see the invert rule in the CSS).
   app.dataset['mode'] = state.mode;
@@ -1158,13 +1171,21 @@ function applyPreset(key: Preset, convert = true): void {
   if (convert) scheduleRun();
 }
 
-for (const chip of all('.chip[data-preset]')) {
+// The Mode grid's Clean card, wired to `applyPreset` like a Preset chip is —
+// see the note on `PRESETS.clean` above for why it lives here instead.
+for (const chip of all('.chip[data-preset], .mode[data-preset]')) {
   chip.addEventListener('click', () => applyPreset((chip.dataset['preset'] ?? 'auto') as Preset));
 }
 
 for (const mode of all('.mode[data-mode]')) {
   mode.addEventListener('click', () => {
-    state.mode = (mode.dataset['mode'] ?? 'auto') as Mode;
+    const next = (mode.dataset['mode'] ?? 'auto') as Mode;
+    // Picking plain Trace while Clean is still the active preset would leave
+    // Trace unable to show pressed (the exception above suppresses it exactly
+    // because Clean is `mode: 'trace'` too) — drop the Clean designation, the
+    // same way choosing any other mode already leaves a stale preset behind.
+    if (next === 'trace' && state.preset === 'clean') state.preset = 'auto';
+    state.mode = next;
     paintControls();
     paintBudget();
     scheduleRun();
