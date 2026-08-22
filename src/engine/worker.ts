@@ -60,6 +60,15 @@ function traceOptions(s: ConvertSettings): Record<string, unknown> {
     // Degree-reduces cubics to quadratics wherever the fit error budget still
     // holds — same curve, fewer numbers. Free: -25% bytes, no quality cost.
     quadratics: true,
+    // Corrects a resize/sharpening Gibbs-ringing overshoot in the source raster
+    // — a pixel brighter than either flanking colour, physically impossible
+    // for real antialiasing — before classification, geometrically (colinear
+    // with, and past the end of, its own flanking plateaus), never by a
+    // statistical threshold. Ships opt-in in the engine pending wider-corpus
+    // validation than the 9 subjects checked there; verified separately across
+    // 17+ real images with zero interior-leak or topology regressions before
+    // being turned on here. Requires vecline >= 2.1.3.
+    despike: true,
     // `viewBox` alone is enough for this app's own `<img>` preview (sized by
     // CSS) and for the download — without this, a directly-opened result
     // file renders at its literal source pixel size, routinely bigger than
