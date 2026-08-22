@@ -899,6 +899,10 @@ img.art.px{image-rendering:pixelated;image-rendering:crisp-edges}
 .mode[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
 .mode[aria-pressed="true"] .t{color:var(--accent-text)}
 .mode[aria-pressed="true"] .s{color:var(--accent-text);opacity:.8}
+/* Five cards in a two-column grid leaves a lone trailing one; Centerline is
+   already the odd one out — a stroke strategy among fill strategies — so
+   giving it the full row reads as intentional, not a layout gap. */
+.modes .mode:last-child{grid-column:1/-1}
 
 .field{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
 .field:last-child{margin-bottom:0}
@@ -1334,7 +1338,6 @@ details.adv .body{margin-top:13px}
         <div class="grphead"><span class="lbl">Preset</span><span class="val" id="presetVal">Auto</span></div>
         <div class="chips" role="group" aria-label="Preset">
           <button class="chip" type="button" data-preset="auto"     aria-pressed="true">Auto</button>
-          <button class="chip" type="button" data-preset="clean"    aria-pressed="false">Clean</button>
           <button class="chip" type="button" data-preset="logo"     aria-pressed="false">Logo</button>
           <button class="chip" type="button" data-preset="lineart"  aria-pressed="false">Line-art</button>
           <button class="chip" type="button" data-preset="poster"   aria-pressed="false">Poster</button>
@@ -1349,6 +1352,14 @@ details.adv .body{margin-top:13px}
         <div class="modes" role="group" aria-label="Mode">
           <button class="mode" type="button" data-mode="auto" aria-pressed="true">
             <span class="t">Auto</span><span class="s">Picks a strategy per image</span>
+          </button>
+          <!-- Not a `data-mode` button: the engine has no "clean" strategy, only
+               `trace` tuned by the `clean` preset. This sets the preset (see the
+               dedicated wiring in main.ts) while looking like a mode card, because
+               that is the choice people actually make — clean or lossless — and
+               burying it in the eight-wide Preset row lost it next to Logo/Poster. -->
+          <button class="mode" type="button" data-preset="clean" aria-pressed="false">
+            <span class="t">Clean</span><span class="s">Smoothed, curve-fitted trace</span>
           </button>
           <button class="mode" type="button" data-mode="lossless" aria-pressed="false">
             <span class="t">Pixel-lossless</span><span class="s">Rasterises back bit-exact</span>
