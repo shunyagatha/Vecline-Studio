@@ -128,6 +128,13 @@ interface PresetDef {
 
 const PRESETS: Record<Preset, PresetDef> = {
   auto:     { name: 'Auto',      mode: 'auto',       colors: 16, detail: 62,  gradients: false, primitives: false },
+  // What Auto's trace half already is, offered explicitly for someone who
+  // wants the smoothed, curve-fitted look every time rather than only when
+  // Auto judges the source too rich in colour for a bit-exact result. Same
+  // colours/detail as Auto on purpose — the difference is `mode: 'trace'`
+  // forcing the engine's `PRESETS.clean` tuning (see `traceOptions` in
+  // worker.ts) instead of leaving the lossless-or-trace choice to the source.
+  clean:    { name: 'Clean',     mode: 'trace',      colors: 16, detail: 62,  gradients: false, primitives: false },
   logo:     { name: 'Logo',      mode: 'trace',      colors: 8,  detail: 55,  gradients: false, primitives: true },
   lineart:  { name: 'Line-art',  mode: 'centerline', colors: 2,  detail: 70,  gradients: false, primitives: false },
   poster:   { name: 'Poster',    mode: 'trace',      colors: 6,  detail: 45,  gradients: false, primitives: true },

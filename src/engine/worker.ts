@@ -37,15 +37,38 @@ import {
   cropImage,
   svgSprite,
   framesToAnimatedSvg,
+  PRESETS,
+  refineGateFor,
+  cleanMinArea,
 } from 'vecline/core';
 import type {
   ConvertResult, ConvertSettings, Metrics, RasterImage,
   WorkerRequest, WorkerResponse, ExportFormat, ExportedFile, Mode,
 } from './types.js';
 
-/** Trace options derived from the UI's settings. */
-function traceOptions(s: ConvertSettings): Record<string, unknown> {
+/**
+ * Trace options derived from the UI's settings.
+ *
+ * `image` is the prepared source the trace is about to run on: Auto and
+ * Clean both resolve to the engine's own `PRESETS.clean` tuning rather than a
+ * hand-copied approximation, and that preset's `minArea` and refinement gate
+ * are content-adaptive (see `cleanMinArea`/`refineGateFor` in
+ * vecline/core) — reading the image's size and noise is the whole reason
+ * this needs the pixels, not just the settings object.
+ */
+function traceOptions(s: ConvertSettings, image: RasterImage): Record<string, unknown> {
+  // Auto has no opinion of its own worth keeping separate from Clean: both are
+  // "give me the best trace", and Clean's tuning — smoothing the lattice
+  // staircase before fitting, an underpaint pass for transparent seams, a
+  // content-sized despeckle floor — is strictly what makes a trace look
+  // finished rather than a faithful reproduction of pixel noise. The Colors
+  // and Detail sliders stay authoritative (spread after), so choosing either
+  // preset does not take the rail away from someone who wants to override it.
+  const clean = s.preset === 'clean' || s.preset === 'auto'
+    ? { ...PRESETS.clean, minArea: cleanMinArea(image.width, image.height), ...refineGateFor(image as never) }
+    : {};
   return {
+    ...clean,
     colors: s.colors,
     tolerance: s.detail,
     fitError: s.detail,
@@ -416,7 +439,7 @@ async function convert(image: RasterImage, settings: ConvertSettings): Promise<C
         // resort, not the first, and says plainly that it is not what was asked
         // for.
         mode = 'trace';
-        const out = trace(source as never, traceOptions(settings) as never) as
+        const out = trace(source as never, traceOptions(settings, source) as never) as
           { svg: string; shapes: number; colors: number };
         svg = out.svg;
         shapes = out.shapes;
@@ -434,7 +457,7 @@ async function convert(image: RasterImage, settings: ConvertSettings): Promise<C
     shapes = out.paths;
     notes.push('Single-stroke medial-axis paths, for pen plotters, lasers and CNC.');
   } else {
-    const out = trace(source as never, traceOptions(settings) as never) as
+    const out = trace(source as never, traceOptions(settings, source) as never) as
       { svg: string; shapes: number; colors: number };
     svg = out.svg;
     shapes = out.shapes;
@@ -532,7 +555,7 @@ async function exportAs(
     const polys = centerlinePolylines(source as never, {}) as never;
     return toGcode(polys, { mode: 'laser', height: source.height } as never);
   }
-  const geometry = traceGeometry(source as never, traceOptions(settings) as never) as never;
+  const geometry = traceGeometry(source as never, traceOptions(settings, source) as never) as never;
   if (format === 'dxf') {
     // A DXF that declares no units is a drawing; one that does is a part.
     // Without `$INSUNITS`, LightBurn, LibreCAD and Fusion each apply a different
@@ -601,7 +624,7 @@ function resizeNearest(image: RasterImage, width: number, height: number): Raste
  */
 function exportMany(image: RasterImage, settings: ConvertSettings): ExportedFile[] {
   const { source } = prepare(image, settings);
-  const separations = traceSeparations(source as never, traceOptions(settings) as never) as
+  const separations = traceSeparations(source as never, traceOptions(settings, source) as never) as
     { color: string; svg: string }[];
   return separations.map((sep, i) => ({
     // The colour is in the filename because a plate is identified by its ink,
